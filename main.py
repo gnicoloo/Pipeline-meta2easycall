@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Meta Lead Ads -> EasyCall
-Pipeline "one-shot": a ogni avvio scarica i lead nuovi dalle form Meta,
-estrae nome/cognome/email/telefono/localita, instrada per provincia e
-li invia a EasyCall via API. Tiene uno stato locale per non duplicare.
+Meta Lead Ads -> EasyCall  (multi-pagina)
+A ogni avvio:
+  1. usa /me/accounts per scoprire le Pagine e i loro token
+  2. per ogni Pagina configurata scarica i moduli e i lead
+  3. normalizza, instrada (per localita' o campagna fissa) e invia a EasyCall
+  4. tiene uno stato locale per non duplicare
 
-Usa SOLO la standard library di Python (nessuna dipendenza da installare).
+Usa SOLO la standard library di Python (nessuna dipendenza).
 """
 
 import os
 import sys
+import re
 import json
 import time
 import datetime
@@ -18,11 +21,7 @@ import urllib.request
 import urllib.parse
 import urllib.error
 
-# ---------------------------------------------------------------------------
-# Percorsi: funziona sia come script .py sia come .exe (PyInstaller).
-# config.json / state.json / il log stanno SEMPRE accanto all'eseguibile,
-# cosi' l'operatore puo' modificare il config senza ricompilare nulla.
-# ---------------------------------------------------------------------------
+# --- Percorsi: funziona sia come .py sia come .exe (PyInstaller) -----------
 if getattr(sys, "frozen", False):
     BASE_DIR = os.path.dirname(sys.executable)
 else:
@@ -33,9 +32,6 @@ STATE_PATH = os.path.join(BASE_DIR, "state.json")
 LOG_PATH = os.path.join(BASE_DIR, "log.txt")
 
 
-# ---------------------------------------------------------------------------
-# Logging semplice: scrive a video e su log.txt
-# ---------------------------------------------------------------------------
 def log(msg):
     line = "[{}] {}".format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), msg)
     print(line)
@@ -46,9 +42,7 @@ def log(msg):
         pass
 
 
-# ---------------------------------------------------------------------------
-# Config e stato
-# ---------------------------------------------------------------------------
+# --- Config e stato --------------------------------------------------------
 def load_config():
     if not os.path.exists(CONFIG_PATH):
         log("ERRORE: config.json non trovato accanto al programma ({})".format(CONFIG_PATH))
@@ -63,8 +57,7 @@ def load_state():
     try:
         with open(STATE_PATH, "r", encoding="utf-8") as f:
             data = json.load(f)
-        if "sent_ids" not in data:
-            data["sent_ids"] = []
+        data.setdefault("sent_ids", [])
         return data
     except Exception:
         return {"sent_ids": []}
@@ -77,59 +70,96 @@ def save_state(state):
     os.replace(tmp, STATE_PATH)
 
 
-# ---------------------------------------------------------------------------
-# META: scarica i lead di una form (con paginazione e filtro temporale)
-# ---------------------------------------------------------------------------
+# --- Helper HTTP GET (JSON) ------------------------------------------------
+def http_get_json(url):
+    req = urllib.request.Request(url, headers={"Accept": "application/json"})
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+
+# --- META: scopri le pagine e i loro token (/me/accounts) ------------------
+def meta_get_pages(user_token, api_version):
+    params = {"fields": "id,name,access_token", "access_token": user_token, "limit": "100"}
+    url = "https://graph.facebook.com/{}/me/accounts?{}".format(api_version, urllib.parse.urlencode(params))
+    pages = {}
+    while url:
+        try:
+            payload = http_get_json(url)
+        except urllib.error.HTTPError as e:
+            body = e.read().decode("utf-8", errors="replace")
+            log("ERRORE /me/accounts: HTTP {} - {}".format(e.code, body[:400]))
+            break
+        except Exception as e:
+            log("ERRORE /me/accounts: {}".format(e))
+            break
+        for p in payload.get("data", []):
+            pages[str(p.get("id"))] = {"name": p.get("name", ""), "token": p.get("access_token", "")}
+        url = payload.get("paging", {}).get("next")
+    return pages
+
+
+# --- META: elenco moduli (form) di una pagina ------------------------------
+def meta_get_forms(page_id, page_token, api_version):
+    params = {"fields": "id,name", "access_token": page_token, "limit": "100"}
+    url = "https://graph.facebook.com/{}/{}/leadgen_forms?{}".format(api_version, page_id, urllib.parse.urlencode(params))
+    forms = []
+    while url:
+        try:
+            payload = http_get_json(url)
+        except urllib.error.HTTPError as e:
+            body = e.read().decode("utf-8", errors="replace")
+            log("ERRORE moduli pagina {}: HTTP {} - {}".format(page_id, e.code, body[:300]))
+            break
+        except Exception as e:
+            log("ERRORE moduli pagina {}: {}".format(page_id, e))
+            break
+        forms.extend(payload.get("data", []))
+        url = payload.get("paging", {}).get("next")
+    return forms
+
+
+# --- META: scarica i lead di un modulo -------------------------------------
 def meta_fetch_leads(form_id, token, api_version, lookback_days):
     since_unix = int(time.time()) - lookback_days * 86400
     params = {
         "fields": "id,created_time,field_data",
         "access_token": token,
         "limit": "100",
-        "filtering": json.dumps(
-            [{"field": "time_created", "operator": "GREATER_THAN", "value": since_unix}]
-        ),
+        "filtering": json.dumps([{"field": "time_created", "operator": "GREATER_THAN", "value": since_unix}]),
     }
-    url = "https://graph.facebook.com/{}/{}/leads?{}".format(
-        api_version, form_id, urllib.parse.urlencode(params)
-    )
-
+    url = "https://graph.facebook.com/{}/{}/leads?{}".format(api_version, form_id, urllib.parse.urlencode(params))
     leads = []
     while url:
         try:
-            req = urllib.request.Request(url, headers={"Accept": "application/json"})
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                payload = json.loads(resp.read().decode("utf-8"))
+            payload = http_get_json(url)
         except urllib.error.HTTPError as e:
             body = e.read().decode("utf-8", errors="replace")
-            log("ERRORE Meta (form {}): HTTP {} - {}".format(form_id, e.code, body[:500]))
+            log("ERRORE lead modulo {}: HTTP {} - {}".format(form_id, e.code, body[:300]))
             break
         except Exception as e:
-            log("ERRORE Meta (form {}): {}".format(form_id, e))
+            log("ERRORE lead modulo {}: {}".format(form_id, e))
             break
-
         leads.extend(payload.get("data", []))
-        # paginazione: Meta fornisce l'URL completo della pagina successiva
         url = payload.get("paging", {}).get("next")
-
     return leads
 
 
-# ---------------------------------------------------------------------------
-# NORMALIZZAZIONE del singolo lead Meta
-# ---------------------------------------------------------------------------
+# --- Normalizzazione -------------------------------------------------------
 def fields_to_dict(lead):
-    """field_data: [{name, values:[...]}] -> {name: primo_valore}"""
     out = {}
     for f in lead.get("field_data", []):
         name = (f.get("name") or "").strip().lower()
         values = f.get("values") or []
-        out[name] = values[0].strip() if values and isinstance(values[0], str) else (values[0] if values else "")
+        if values and isinstance(values[0], str):
+            out[name] = values[0].strip()
+        elif values:
+            out[name] = values[0]
+        else:
+            out[name] = ""
     return out
 
 
 def extract_name(fields):
-    """Gestisce sia first_name/last_name separati sia full_name unico."""
     fn = (fields.get("first_name") or "").strip()
     ln = (fields.get("last_name") or "").strip()
     if fn or ln:
@@ -154,9 +184,7 @@ def extract_locality(fields, candidate_names):
 def normalize_phone(raw):
     if not raw:
         return ""
-    raw = raw.strip()
-    keep = "".join(ch for ch in raw if ch.isdigit() or ch == "+")
-    return keep
+    return "".join(ch for ch in raw.strip() if ch.isdigit() or ch == "+")
 
 
 def normalize_lead(lead, locality_field_names):
@@ -173,31 +201,55 @@ def normalize_lead(lead, locality_field_names):
     }
 
 
-# ---------------------------------------------------------------------------
-# ROUTING: localita -> campagna EasyCall
-# ---------------------------------------------------------------------------
+# --- Routing: localita' -> campagna EasyCall -------------------------------
+def _norm(s):
+    """minuscolo, accenti via, punteggiatura -> spazi singoli."""
+    s = (s or "").lower()
+    s = (s.replace("à", "a").replace("è", "e").replace("é", "e")
+           .replace("ì", "i").replace("ò", "o").replace("ù", "u"))
+    s = re.sub(r"[^a-z0-9]+", " ", s).strip()
+    return s
+
+
 def route_campaign(locality, routing):
+    """
+    Risolve la campagna da una localita' (provincia, sigla o comune).
+    Priorita':
+      1) match esatto sull'intera stringa
+      2) sigla provincia tra i token (es. 'Viareggio (LU)' -> lu) [piu' affidabile]
+      3) nome composto conosciuto contenuto nella stringa
+         (es. 'Massa Marittima ...' -> Grosseto, non 'massa')
+      4) singola parola lunga (nome comune/provincia)
+      5) default
+    """
     default = routing.get("default_campaign", "")
-    mapping = routing.get("map", {})
-    if not locality:
+    kw = routing.get("by_keyword", {})
+    norm = _norm(locality)
+    if not norm:
         return default
-    loc = locality.strip().lower()
-    # 1) match esatto
-    if loc in mapping:
-        return mapping[loc]
-    # 2) match per contenuto (es. "Firenze (FI)" contiene "firenze")
-    for key, camp in mapping.items():
-        if key in loc:
-            return camp
-    # 3) fallback: campagna di default ("la piu' vicina")
+    tokens = norm.split()
+
+    # 1) intera stringa
+    if norm in kw:
+        return kw[norm]
+    # 2) sigla provincia (token di 2 lettere noto)
+    for t in tokens:
+        if len(t) == 2 and t in kw:
+            return kw[t]
+    # 3) nomi composti noti (chiavi con spazio), dal piu' lungo
+    multi = sorted((k for k in kw if " " in k), key=len, reverse=True)
+    for k in multi:
+        if k in norm:
+            return kw[k]
+    # 4) parola singola lunga
+    for t in tokens:
+        if len(t) > 2 and t in kw:
+            return kw[t]
     return default
 
 
-# ---------------------------------------------------------------------------
-# EASYCALL: invio del lead
-# ---------------------------------------------------------------------------
+# --- EasyCall --------------------------------------------------------------
 def build_easycall_payload(lead, campaign, channel):
-    """Costruisce il body JSON includendo SOLO i campi valorizzati."""
     payload = {}
     if lead["first_name"]:
         payload["FirstName"] = lead["first_name"]
@@ -219,7 +271,6 @@ def build_easycall_payload(lead, campaign, channel):
 
 
 def easycall_send(payload, url, token):
-    """Ritorna (ok: bool, info: str). Ritenta su errori 500/rete."""
     data = json.dumps(payload).encode("utf-8")
     headers = {
         "Content-Type": "application/json",
@@ -232,8 +283,7 @@ def easycall_send(payload, url, token):
         try:
             req = urllib.request.Request(url, data=data, headers=headers, method="POST")
             with urllib.request.urlopen(req, timeout=30) as resp:
-                body = resp.read().decode("utf-8", errors="replace")
-                return True, body.strip()
+                return True, resp.read().decode("utf-8", errors="replace").strip()
         except urllib.error.HTTPError as e:
             body = e.read().decode("utf-8", errors="replace")
             if e.code == 401:
@@ -254,9 +304,7 @@ def easycall_send(payload, url, token):
     return False, "esauriti i tentativi"
 
 
-# ---------------------------------------------------------------------------
-# MAIN
-# ---------------------------------------------------------------------------
+# --- MAIN ------------------------------------------------------------------
 def main():
     log("=== Avvio import Meta -> EasyCall ===")
     cfg = load_config()
@@ -268,58 +316,78 @@ def main():
     routing = cfg.get("routing", {})
     locality_fields = cfg.get("locality", {}).get("field_names", ["city", "citta", "provincia"])
 
-    token = meta_cfg["access_token"]
+    user_token = meta_cfg["access_token"]
     api_version = meta_cfg.get("api_version", "v25.0")
     lookback_days = int(meta_cfg.get("lookback_days", 7))
 
-    total_new = 0
-    total_sent = 0
-    total_skipped = 0
-    total_errors = 0
+    tot_new = tot_sent = tot_skipped = tot_err = 0
 
-    for form_id in meta_cfg["form_ids"]:
-        log("Form {}: scarico i lead...".format(form_id))
-        raw_leads = meta_fetch_leads(form_id, token, api_version, lookback_days)
-        log("Form {}: {} lead ricevuti da Meta".format(form_id, len(raw_leads)))
+    # 1) scopri pagine + token
+    log("Recupero le pagine accessibili (/me/accounts)...")
+    pages_meta = meta_get_pages(user_token, api_version)
+    if not pages_meta:
+        log("ERRORE: nessuna pagina accessibile col token fornito. Controlla token e permessi.")
+        _pausa()
+        return
+    log("Pagine accessibili: " + ", ".join("{} ({})".format(v["name"], k) for k, v in pages_meta.items()))
 
-        for raw in raw_leads:
-            lead = normalize_lead(raw, locality_fields)
-            lead_id = lead["external_id"]
+    # 2) cicla le pagine configurate
+    for page_cfg in meta_cfg.get("pages", []):
+        pid = str(page_cfg["id"])
+        pname = page_cfg.get("name", pid)
+        if pid not in pages_meta:
+            log("ATTENZIONE: pagina '{}' ({}) non accessibile col token. Salto.".format(pname, pid))
+            continue
+        page_token = pages_meta[pid]["token"]
+        mode = page_cfg.get("routing_mode", "locality")
+        fixed_campaign = page_cfg.get("fixed_campaign", "")
 
-            if not lead_id or lead_id in sent_ids:
-                continue  # gia' inviato in un run precedente -> salta
-            total_new += 1
+        forms = meta_get_forms(pid, page_token, api_version)
+        log("Pagina '{}': {} moduli trovati".format(pname, len(forms)))
 
-            # requisito EasyCall: almeno email O telefono
-            if not lead["email"] and not lead["phone"]:
-                log("  SKIP lead {} (manca sia email sia telefono)".format(lead_id))
-                total_skipped += 1
-                sent_ids.add(lead_id)  # marcalo come gestito per non riprovarlo all'infinito
-                continue
+        for form in forms:
+            form_id = str(form.get("id"))
+            raw_leads = meta_fetch_leads(form_id, page_token, api_version, lookback_days)
 
-            campaign = route_campaign(lead["locality"], routing)
-            payload = build_easycall_payload(lead, campaign, ec_cfg.get("channel", "facebook"))
+            for raw in raw_leads:
+                lead = normalize_lead(raw, locality_fields)
+                lead_id = lead["external_id"]
+                if not lead_id or lead_id in sent_ids:
+                    continue
+                tot_new += 1
 
-            ok, info = easycall_send(payload, ec_cfg["url"], ec_cfg["token"])
-            if ok:
-                total_sent += 1
-                sent_ids.add(lead_id)
-                save_state({"sent_ids": list(sent_ids)})  # salvo subito: niente doppi invii se crasha
-                log("  OK lead {} -> campagna '{}' ({} {})".format(
-                    lead_id, campaign, lead["first_name"], lead["last_name"]))
-            else:
-                total_errors += 1
-                log("  ERRORE invio lead {}: {}".format(lead_id, info))
-                # NON lo marco come inviato: verra' ritentato al prossimo avvio
+                if not lead["email"] and not lead["phone"]:
+                    log("  SKIP lead {} (manca email e telefono)".format(lead_id))
+                    tot_skipped += 1
+                    sent_ids.add(lead_id)
+                    continue
+
+                if mode == "fixed":
+                    campaign = fixed_campaign
+                else:
+                    campaign = route_campaign(lead["locality"], routing)
+
+                payload = build_easycall_payload(lead, campaign, ec_cfg.get("channel", "facebook"))
+                ok, info = easycall_send(payload, ec_cfg["url"], ec_cfg["token"])
+                if ok:
+                    tot_sent += 1
+                    sent_ids.add(lead_id)
+                    save_state({"sent_ids": list(sent_ids)})
+                    log("  OK [{}] lead {} -> '{}' ({} {})".format(
+                        pname, lead_id, campaign, lead["first_name"], lead["last_name"]))
+                else:
+                    tot_err += 1
+                    log("  ERRORE invio lead {}: {}".format(lead_id, info))
 
     save_state({"sent_ids": list(sent_ids)})
-
     log("=== Riepilogo ===")
     log("Nuovi: {} | Inviati: {} | Saltati (no contatto): {} | Errori: {}".format(
-        total_new, total_sent, total_skipped, total_errors))
+        tot_new, tot_sent, tot_skipped, tot_err))
     log("=== Fine ===\n")
+    _pausa()
 
-    # Pausa finale: cosi' la finestra non si chiude subito se avviata con doppio click
+
+def _pausa():
     try:
         input("Premi INVIO per chiudere...")
     except Exception:
@@ -333,7 +401,4 @@ if __name__ == "__main__":
         raise
     except Exception as e:
         log("ERRORE FATALE: {}".format(e))
-        try:
-            input("Premi INVIO per chiudere...")
-        except Exception:
-            pass
+        _pausa()
