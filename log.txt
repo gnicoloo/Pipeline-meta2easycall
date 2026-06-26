@@ -120,3 +120,26 @@
 [2026-06-26 12:42:45] Nuovi: 112 | Inviati: 112 | Saltati (no contatto): 0 | Errori: 0
 [2026-06-26 12:42:45] === Fine ===
 
+[2026-06-26 15:41:43] === Avvio import Meta -> EasyCall ===
+[2026-06-26 15:41:43] Recupero le pagine accessibili (/me/accounts)...
+[2026-06-26 15:41:45] Pagine accessibili: Arredamento Italia (108078727754043), Mobilmarket (93644523828), Maiora Interiors (1840294139572597)
+[2026-06-26 15:41:46] Pagina 'Mobilmarket': 104 moduli trovati
+[2026-06-26 15:42:17] Pagina 'Arredamento Italia': 8 moduli trovati
+[2026-06-26 15:42:18]   OK [Arredamento Italia] lead 1549003236627240 -> 'LEAD giornalieri Figline' (Alina Morze)
+[2026-06-26 15:42:18]   OK [Arredamento Italia] lead 1542316634185100 -> 'LEAD giornalieri Firenze' (Elisabetta Mancinelli)
+[2026-06-26 15:42:20] Pagina 'Maiora Interiors': 4 moduli trovati
+[2026-06-26 15:42:21]   OK [Maiora Interiors] lead 1311156104519329 -> 'LEAD giornalieri Maiora' (Palmiero Vichi)
+[2026-06-26 15:42:22] === Riepilogo ===
+[2026-06-26 15:42:22] Nuovi: 3 | Inviati: 3 | Saltati (no contatto): 0 | Errori: 0
+[2026-06-26 15:42:22] === Fine ===
+
+[2026-06-26 15:42:43] === Avvio import Meta -> EasyCall ===
+[2026-06-26 15:42:43] Recupero le pagine accessibili (/me/accounts)...
+[2026-06-26 15:42:45] Pagine accessibili: Arredamento Italia (108078727754043), Mobilmarket (93644523828), Maiora Interiors (1840294139572597)
+[2026-06-26 15:42:45] Pagina 'Mobilmarket': 104 moduli trovati
+[2026-06-26 15:43:20] Pagina 'Arredamento Italia': 8 moduli trovati
+[2026-06-26 15:43:23] Pagina 'Maiora Interiors': 4 moduli trovati
+[2026-06-26 15:43:24] === Riepilogo ===
+[2026-06-26 15:43:24] Nuovi: 0 | Inviati: 0 | Saltati (no contatto): 0 | Errori: 0
+[2026-06-26 15:43:24] === Fine ===
+

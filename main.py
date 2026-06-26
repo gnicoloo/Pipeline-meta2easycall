@@ -14,6 +14,7 @@ Usa SOLO la standard library di Python (nessuna dipendenza).
 import os
 import sys
 import re
+import csv
 import json
 import time
 import datetime
@@ -30,6 +31,17 @@ else:
 CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
 STATE_PATH = os.path.join(BASE_DIR, "state.json")
 LOG_PATH = os.path.join(BASE_DIR, "log.txt")
+HISTORY_PATH = os.path.join(BASE_DIR, "leads_history.csv")
+DASHBOARD_DATA_PATH = os.path.join(BASE_DIR, "dashboard_data.js")
+HISTORY_HEADER = [
+    "Ragione sociale", "Partita IVA", "Cognome", "Nome",
+    "Codice fiscale", "Codice fiscale giuridico",
+    "Telefono fisso", "Telefono mobile", "Altro Telefono", "Numero Fax",
+    "Email", "Provenienza", "Personalizzato 1", "Personalizzato 2", "Altro",
+    "Strada", "Civico", "Comune", "CAP", "Provincia",
+    "Campagna", "Lista",
+    "Esito chiamata", "Esito Archiviazione", "Data Archiviazione", "Note", "Ultimo Operatore",
+]
 
 
 def log(msg):
@@ -304,6 +316,65 @@ def easycall_send(payload, url, token):
     return False, "esauriti i tentativi"
 
 
+# --- Storico + dati per la dashboard ---------------------------------------
+def append_history(lead, page_name, campaign):
+    """Aggiunge una riga allo storico CSV per ogni lead inviato (formato EasyCall)."""
+    date = (lead.get("created_time") or "")[:10]
+    row = [
+        "", "",                              # Ragione sociale, Partita IVA
+        lead.get("last_name", ""),           # Cognome
+        lead.get("first_name", ""),          # Nome
+        "", "",                              # Codice fiscale, CF giuridico
+        "", lead.get("phone", ""), "", "",   # Telefono fisso, mobile, altro, fax
+        lead.get("email", ""),               # Email
+        page_name,                           # Provenienza (pagina Facebook)
+        lead.get("external_id", ""), "", "", # Personalizzato 1 (lead_id Meta), 2, Altro
+        "", "",                              # Strada, Civico
+        lead.get("locality", ""), "", "",    # Comune, CAP, Provincia
+        campaign, "",                        # Campagna, Lista
+        "", "", date, "", "",                # Esito chiamata, Esito Arch., Data Arch., Note, Operatore
+    ]
+    new_file = not os.path.exists(HISTORY_PATH)
+    with open(HISTORY_PATH, "a", newline="", encoding="utf-8") as f:
+        w = csv.writer(f, quoting=csv.QUOTE_ALL)
+        if new_file:
+            w.writerow(HISTORY_HEADER)
+        w.writerow(row)
+
+
+def _iso_date(raw):
+    """Converte 'dd/mm/yyyy ...' o 'yyyy-mm-dd...' in 'yyyy-mm-dd'. Restituisce '' se non parsabile."""
+    s = (raw or "").strip()[:10]
+    if not s:
+        return ""
+    if s[2:3] == "/":          # formato italiano dd/mm/yyyy
+        try:
+            d, m, y = s.split("/")
+            return "{}-{}-{}".format(y, m.zfill(2), d.zfill(2))
+        except Exception:
+            return ""
+    return s                   # già ISO yyyy-mm-dd
+
+
+def generate_dashboard_data():
+    """Rigenera dashboard_data.js leggendo tutto lo storico CSV (formato EasyCall)."""
+    rows = []
+    if os.path.exists(HISTORY_PATH):
+        with open(HISTORY_PATH, "r", newline="", encoding="utf-8") as f:
+            for d in csv.DictReader(f):
+                rows.append({
+                    "date": _iso_date(d.get("Data Archiviazione")),
+                    "page": d.get("Provenienza", ""),
+                    "campaign": d.get("Campagna", ""),
+                    "locality": d.get("Comune", ""),
+                    "has_email": bool((d.get("Email") or "").strip()),
+                    "has_phone": bool((d.get("Telefono mobile") or "").strip()),
+                })
+    payload = {"generated_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), "leads": rows}
+    with open(DASHBOARD_DATA_PATH, "w", encoding="utf-8") as f:
+        f.write("window.DASHBOARD = " + json.dumps(payload, ensure_ascii=False) + ";\n")
+
+
 # --- MAIN ------------------------------------------------------------------
 def main():
     log("=== Avvio import Meta -> EasyCall ===")
@@ -373,6 +444,7 @@ def main():
                     tot_sent += 1
                     sent_ids.add(lead_id)
                     save_state({"sent_ids": list(sent_ids)})
+                    append_history(lead, pname, campaign)
                     log("  OK [{}] lead {} -> '{}' ({} {})".format(
                         pname, lead_id, campaign, lead["first_name"], lead["last_name"]))
                 else:
@@ -380,6 +452,7 @@ def main():
                     log("  ERRORE invio lead {}: {}".format(lead_id, info))
 
     save_state({"sent_ids": list(sent_ids)})
+    generate_dashboard_data()
     log("=== Riepilogo ===")
     log("Nuovi: {} | Inviati: {} | Saltati (no contatto): {} | Errori: {}".format(
         tot_new, tot_sent, tot_skipped, tot_err))

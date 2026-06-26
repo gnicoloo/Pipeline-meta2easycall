@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pannello Lead — Meta → EasyCall</title>
+<!-- Dati reali generati dallo script. Se manca, si usano dati di esempio. -->
+<script src="dashboard_data.js" onerror="window.__noData=true"></script>
+<style>
+  :root{
+    --paper:#FAF8F3; --panel:#FFFFFF; --line:#EBE4D8; --line2:#F1ECE2;
+    --ink:#211C16; --muted:#8C8174; --muted2:#A89C8C;
+    --arezzo:#C2683B; --figline:#7C854F; --firenze:#2F6E73; --maiora:#8A5A77; --other:#A1968A;
+    --shadow:0 1px 0 rgba(33,28,22,.03), 0 8px 24px -16px rgba(33,28,22,.22);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--paper); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    font-feature-settings:"tnum" 1; -webkit-font-smoothing:antialiased;
+    padding:28px clamp(16px,4vw,48px) 64px;
+  }
+  .wrap{max-width:1120px;margin:0 auto}
+  .eyebrow{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted2);font-weight:700}
+  .num{font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+
+  /* header */
+  header.top{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap;
+    border-bottom:2px solid var(--ink);padding-bottom:16px;margin-bottom:24px}
+  header.top h1{margin:.25em 0 0;font-size:clamp(26px,4vw,40px);font-weight:700;letter-spacing:-.03em;line-height:1}
+  .updated{text-align:right;color:var(--muted);font-size:12.5px;line-height:1.5}
+  .updated b{color:var(--ink);font-weight:600}
+
+  .demo-banner{background:#FBEFE4;border:1px solid #E9C9A9;color:#8a4b1d;
+    padding:10px 14px;border-radius:10px;font-size:13px;margin-bottom:22px}
+
+  /* filters */
+  .filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px}
+  .filters button{font:inherit;font-size:13px;font-weight:600;color:var(--muted);
+    background:var(--panel);border:1px solid var(--line);padding:7px 14px;border-radius:999px;cursor:pointer;
+    transition:background .15s,color .15s,border-color .15s}
+  .filters button:hover{border-color:var(--muted2)}
+  .filters button[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .filters button:focus-visible{outline:2px solid var(--firenze);outline-offset:2px}
+
+  /* kpi */
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:26px}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow)}
+  .kpi .v{font-size:clamp(30px,5vw,44px);font-weight:700;line-height:1;margin-top:10px}
+  .kpi .sub{color:var(--muted);font-size:12px;margin-top:7px}
+  .kpi.accent{position:relative;overflow:hidden}
+  .kpi.accent::after{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--arezzo)}
+
+  /* panels */
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px 20px;box-shadow:var(--shadow);margin-bottom:18px}
+  .panel h2{margin:0;font-size:14px;font-weight:700;letter-spacing:-.01em}
+  .panel .cap{color:var(--muted);font-size:12px;margin:3px 0 16px}
+
+  /* daily / weekly columns chart */
+  .cols{display:flex;align-items:flex-end;gap:3px;height:170px;border-bottom:1px solid var(--line);padding-top:6px}
+  .col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;min-width:0}
+  .col .bar{width:100%;max-width:26px;background:var(--ink);border-radius:4px 4px 0 0;transition:height .4s ease}
+  .col.weekly .bar{background:var(--firenze)}
+  .col:hover .bar{opacity:.78}
+  .col .cnt{font-size:10px;color:var(--muted);margin-bottom:4px;font-variant-numeric:tabular-nums;height:12px}
+  .axis{display:flex;gap:3px;margin-top:6px}
+  .axis span{flex:1;text-align:center;font-size:10px;color:var(--muted2);min-width:0;overflow:hidden;white-space:nowrap}
+
+  /* horizontal bars */
+  .hbars{display:flex;flex-direction:column;gap:11px;margin-top:4px}
+  .hrow{display:grid;grid-template-columns:120px 1fr 42px;align-items:center;gap:12px}
+  .hrow .lab{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hrow .track{background:var(--line2);border-radius:7px;height:14px;overflow:hidden}
+  .hrow .fill{height:100%;border-radius:7px;transition:width .45s ease}
+  .hrow .val{font-size:13px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
+
+  /* gauges */
+  .gauge{margin-top:6px}
+  .gauge+.gauge{margin-top:18px}
+  .gauge .gl{display:flex;justify-content:space-between;font-size:13px;margin-bottom:7px}
+  .gauge .gl b{font-weight:700}
+  .gauge .track{background:var(--line2);border-radius:8px;height:16px;overflow:hidden}
+  .gauge .fill{height:100%;border-radius:8px;transition:width .45s ease}
+
+  .empty{color:var(--muted);font-size:13px;padding:24px 0;text-align:center}
+  footer{margin-top:30px;color:var(--muted2);font-size:12px;text-align:center}
+
+  @media(max-width:760px){
+    .kpis{grid-template-columns:1fr 1fr}
+    .grid2{grid-template-columns:1fr}
+    .hrow{grid-template-columns:96px 1fr 36px}
+  }
+  @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div>
+      <div class="eyebrow">Meta Lead Ads → EasyCall</div>
+      <h1>Pannello Lead</h1>
+    </div>
+    <div class="updated" id="updated"></div>
+  </header>
+
+  <div id="demoBanner" class="demo-banner" style="display:none">
+    Stai vedendo <b>dati di esempio</b>. Al primo avvio dello script verrà creato
+    <b>dashboard_data.js</b> in questa cartella e il pannello mostrerà i tuoi lead reali.
+  </div>
+
+  <div class="filters" id="filters"></div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="panel">
+    <h2>Andamento giornaliero</h2>
+    <div class="cap" id="dailyCap">Lead al giorno · ultimi 30 giorni</div>
+    <div id="daily"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Andamento settimanale</h2>
+    <div class="cap">Lead per settimana (lun–dom) · ultime 10 settimane</div>
+    <div id="weekly"></div>
+  </div>
+
+  <div class="grid2">
+    <div class="panel">
+      <h2>Per zona (campagna)</h2>
+      <div class="cap">Come sono stati instradati su EasyCall</div>
+      <div class="hbars" id="byCampaign"></div>
+    </div>
+    <div class="panel">
+      <h2>Per pagina</h2>
+      <div class="cap">Da quale brand arrivano i lead</div>
+      <div class="hbars" id="byPage"></div>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="panel">
+      <h2>Località principali</h2>
+      <div class="cap">Top 8 per numero di lead</div>
+      <div class="hbars" id="byLocality"></div>
+    </div>
+    <div class="panel">
+      <h2>Qualità dei contatti</h2>
+      <div class="cap">Quota di lead con recapito utilizzabile dal dialer</div>
+      <div id="quality"></div>
+    </div>
+  </div>
+
+  <footer id="foot"></footer>
+</div>
+
+<script>
+/* ---------- caricamento dati (reali o demo) ---------- */
+function makeDemo(){
+  const pages=["Mobilmarket","Arredamento Italia","Maiora Interiors"];
+  const camps={"Mobilmarket":["LEAD giornalieri Arezzo","LEAD giornalieri Firenze","LEAD giornalieri Figline"],
+               "Arredamento Italia":["LEAD giornalieri Firenze","LEAD giornalieri Arezzo"],
+               "Maiora Interiors":["LEAD giornalieri Maiora"]};
+  const locs=["Arezzo","Firenze","Cortona","Viareggio","Grosseto","Scandicci","Livorno","Sansepolcro","Pisa"];
+  let seed=7; const rnd=()=> (seed=(seed*9301+49297)%233280)/233280;
+  const leads=[]; const today=new Date();
+  for(let d=0;d<70;d++){
+    const day=new Date(today); day.setDate(today.getDate()-d);
+    const iso=day.toISOString().slice(0,10);
+    const n=2+Math.floor(rnd()*15);
+    for(let i=0;i<n;i++){
+      const pg=pages[Math.floor(rnd()*pages.length)];
+      const cs=camps[pg]; const cp=cs[Math.floor(rnd()*cs.length)];
+      leads.push({date:iso,page:pg,campaign:cp,locality:locs[Math.floor(rnd()*locs.length)],
+        has_email:rnd()>0.3,has_phone:rnd()>0.15});
+    }
+  }
+  return {generated_at:"(dati di esempio)",leads};
+}
+const DATA = (window.DASHBOARD && window.DASHBOARD.leads && window.DASHBOARD.leads.length)
+  ? window.DASHBOARD : makeDemo();
+const IS_DEMO = !(window.DASHBOARD && window.DASHBOARD.leads && window.DASHBOARD.leads.length);
+
+/* ---------- helper ---------- */
+const ALL=DATA.leads;
+const fmt=n=>n.toLocaleString("it-IT");
+function campColor(c){c=(c||"").toLowerCase();
+  if(c.includes("arezzo"))return"var(--arezzo)";
+  if(c.includes("figline"))return"var(--figline)";
+  if(c.includes("firenze"))return"var(--firenze)";
+  if(c.includes("maiora"))return"var(--maiora)";
+  return"var(--other)";}
+function shortCamp(c){return (c||"").replace(/lead\s+giornalieri\s+/i,"").trim()||"—";}
+function parseD(s){if(!s||s.length<10)return null;const[y,m,d]=(s.slice(0,10)).split("-").map(Number);if(!y||!m||!d)return null;return new Date(y,m-1,d);}
+function dkey(dt){return dt.getFullYear()+"-"+String(dt.getMonth()+1).padStart(2,"0")+"-"+String(dt.getDate()).padStart(2,"0");}
+function weekStart(dt){const x=new Date(dt);const dow=(x.getDay()+6)%7;x.setDate(x.getDate()-dow);x.setHours(0,0,0,0);return x;}
+
+let pageFilter="__all__";
+const PAGES=[...new Set(ALL.map(l=>l.page))];
+
+/* ---------- render ---------- */
+function rows(){return pageFilter==="__all__"?ALL:ALL.filter(l=>l.page===pageFilter);}
+
+function render(){
+  const R=rows();
+  const today=new Date();today.setHours(0,0,0,0);
+  const todayK=dkey(today);
+  const wk0=weekStart(today);
+  const last7=new Date(today);last7.setDate(today.getDate()-6);
+
+  const cntToday=R.filter(l=>l.date===todayK).length;
+  const cnt7=R.filter(l=>{const d=parseD(l.date);return d&&d>=last7&&d<=today;}).length;
+  // media giornaliera ultimi 30 gg (solo giorni con dati nello storico)
+  const d30=new Date(today);d30.setDate(today.getDate()-29);
+  const in30=R.filter(l=>{const d=parseD(l.date);return d&&d>=d30&&d<=today;});
+  const days30=new Set(in30.map(l=>l.date)).size||1;
+  const avg=(in30.length/days30);
+
+  // KPI
+  const withDate=R.filter(l=>l.date).length;
+  const noDate=R.length-withDate;
+  document.getElementById("kpis").innerHTML=[
+    ["Oggi",fmt(cntToday),"lead importati oggi","accent"],
+    ["Ultimi 7 giorni",fmt(cnt7),"settimana corrente",""],
+    ["Media giornaliera",avg.toFixed(1),"sugli ultimi 30 giorni",""],
+    ["Totale storico",fmt(R.length),(noDate?`di cui ${fmt(noDate)} storici`:"da quando registri i dati"),""],
+  ].map(([e,v,s,a])=>`<div class="kpi ${a}"><div class="eyebrow">${e}</div>
+      <div class="v num">${v}</div><div class="sub">${s}</div></div>`).join("");
+
+  // DAILY (30 gg)
+  renderColumns("daily", buildSeries(R,30,"day"), false);
+  // WEEKLY (10 settimane)
+  renderColumns("weekly", buildSeries(R,10,"week"), true);
+
+  // breakdown
+  hbars("byCampaign", group(R,"campaign"), c=>campColor(c), shortCamp);
+  hbars("byPage", group(R,"page"), ()=> "var(--ink)", x=>x);
+  hbars("byLocality", group(R,"locality").slice(0,8), ()=> "var(--other)", x=>x||"—");
+
+  // qualità contatti
+  const withPhone=R.filter(l=>l.has_phone).length;
+  const withEmail=R.filter(l=>l.has_email).length;
+  const pPhone=R.length?Math.round(withPhone/R.length*100):0;
+  const pEmail=R.length?Math.round(withEmail/R.length*100):0;
+  document.getElementById("quality").innerHTML=
+    gauge("Con telefono",pPhone,withPhone,R.length,"var(--arezzo)")+
+    gauge("Con email",pEmail,withEmail,R.length,"var(--firenze)");
+
+  document.getElementById("foot").textContent=
+    `${fmt(R.length)} lead nel periodo · ${PAGES.length} pagine · fonte: Meta Lead Ads`;
+}
+
+function buildSeries(R,count,mode){
+  const today=new Date();today.setHours(0,0,0,0);
+  const map={};
+  if(mode==="day"){
+    const out=[];
+    for(let i=count-1;i>=0;i--){const d=new Date(today);d.setDate(today.getDate()-i);out.push({key:dkey(d),label:String(d.getDate()),val:0,d});}
+    const idx={};out.forEach((o,i)=>idx[o.key]=i);
+    R.forEach(l=>{if(l.date&&idx[l.date]!=null)out[idx[l.date]].val++;});
+    return out;
+  }else{
+    const w0=weekStart(today);const out=[];
+    for(let i=count-1;i>=0;i--){const d=new Date(w0);d.setDate(w0.getDate()-i*7);
+      out.push({key:dkey(d),label:String(d.getDate())+"/"+(d.getMonth()+1),val:0});}
+    const idx={};out.forEach((o,i)=>idx[o.key]=i);
+    R.forEach(l=>{const d=parseD(l.date);if(!d)return;const k=dkey(weekStart(d));if(idx[k]!=null)out[idx[k]].val++;});
+    return out;
+  }
+}
+
+function renderColumns(id,series,weekly){
+  const max=Math.max(1,...series.map(s=>s.val));
+  const el=document.getElementById(id);
+  const bars=series.map((s,i)=>{
+    const h=Math.round(s.val/max*100);
+    const showLab=weekly?true:(i%5===0||i===series.length-1);
+    return `<div class="col ${weekly?'weekly':''}" title="${s.label}: ${s.val}">
+        <div class="cnt">${s.val||''}</div>
+        <div class="bar" style="height:${Math.max(s.val?6:0,h)}%"></div>
+      </div>`;
+  }).join("");
+  const axis=series.map((s,i)=>{
+    const show=weekly?true:(i%5===0||i===series.length-1);
+    return `<span>${show?s.label:""}</span>`;
+  }).join("");
+  el.innerHTML=`<div class="cols">${bars}</div><div class="axis">${axis}</div>`;
+}
+
+function group(R,field){
+  const m={};R.forEach(l=>{const k=l[field]||"";m[k]=(m[k]||0)+1;});
+  return Object.entries(m).map(([k,v])=>({k,v})).sort((a,b)=>b.v-a.v);
+}
+function hbars(id,arr,colorFn,labFn){
+  const el=document.getElementById(id);
+  if(!arr.length){el.innerHTML='<div class="empty">Nessun dato.</div>';return;}
+  const max=Math.max(...arr.map(a=>a.v));
+  el.innerHTML=arr.map(a=>`<div class="hrow">
+      <div class="lab" title="${labFn(a.k)}">${labFn(a.k)}</div>
+      <div class="track"><div class="fill" style="width:${Math.round(a.v/max*100)}%;background:${colorFn(a.k)}"></div></div>
+      <div class="val num">${fmt(a.v)}</div></div>`).join("");
+}
+function gauge(label,pct,part,tot,color){
+  return `<div class="gauge"><div class="gl"><span>${label}</span><b>${pct}% <span style="color:var(--muted);font-weight:400">(${fmt(part)}/${fmt(tot)})</span></b></div>
+    <div class="track"><div class="fill" style="width:${pct}%;background:${color}"></div></div></div>`;
+}
+
+/* ---------- filtri pagina ---------- */
+function buildFilters(){
+  const f=document.getElementById("filters");
+  const opts=[["__all__","Tutte le pagine"],...PAGES.map(p=>[p,p])];
+  f.innerHTML=opts.map(([v,l])=>`<button data-v="${v}" aria-pressed="${v===pageFilter}">${l}</button>`).join("");
+  f.querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{
+    pageFilter=b.dataset.v;
+    f.querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x.dataset.v===pageFilter));
+    render();
+  }));
+}
+
+/* ---------- init ---------- */
+document.getElementById("updated").innerHTML =
+  IS_DEMO ? "Anteprima con dati di esempio" :
+  `Aggiornato il <b>${(window.DASHBOARD&&window.DASHBOARD.generated_at)||""}</b>`;
+if(IS_DEMO) document.getElementById("demoBanner").style.display="block";
+buildFilters();
+render();
+</script>
+</body>
+</html>
