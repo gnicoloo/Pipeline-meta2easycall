@@ -31,7 +31,8 @@ else:
 CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
 STATE_PATH = os.path.join(BASE_DIR, "state.json")
 LOG_PATH = os.path.join(BASE_DIR, "log.txt")
-HISTORY_PATH = os.path.join(BASE_DIR, "leads_history.csv")
+HISTORY_PATH = os.path.join(BASE_DIR, "leads_history.csv")       # export EasyCall (legacy)
+META_HISTORY_PATH = os.path.join(BASE_DIR, "meta_leads.csv")      # lead importati da Meta (non sovrascrivere!)
 DASHBOARD_DATA_PATH = os.path.join(BASE_DIR, "dashboard_data.js")
 HISTORY_HEADER = [
     "Ragione sociale", "Partita IVA", "Cognome", "Nome",
@@ -80,6 +81,22 @@ def save_state(state):
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(state, f, ensure_ascii=False, indent=2)
     os.replace(tmp, STATE_PATH)
+
+
+def load_meta_history_ids():
+    """Carica i Meta lead ID già presenti in meta_leads.csv (evita doppioni nel recovery)."""
+    ids = set()
+    if not os.path.exists(META_HISTORY_PATH):
+        return ids
+    try:
+        with open(META_HISTORY_PATH, "r", newline="", encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                lead_id = (row.get("Personalizzato 1") or "").strip()
+                if lead_id:
+                    ids.add(lead_id)
+    except Exception:
+        pass
+    return ids
 
 
 # --- Helper HTTP GET (JSON) ------------------------------------------------
@@ -317,25 +334,28 @@ def easycall_send(payload, url, token):
 
 
 # --- Storico + dati per la dashboard ---------------------------------------
-def append_history(lead, page_name, campaign):
-    """Aggiunge una riga allo storico CSV per ogni lead inviato (formato EasyCall)."""
-    date = (lead.get("created_time") or "")[:10]
+def append_history(lead, page_name, campaign, import_date=None):
+    """Aggiunge una riga a meta_leads.csv. import_date = data importazione (default: oggi)."""
+    if import_date is None:
+        import_date = datetime.date.today().isoformat()
     row = [
-        "", "",                              # Ragione sociale, Partita IVA
-        lead.get("last_name", ""),           # Cognome
-        lead.get("first_name", ""),          # Nome
-        "", "",                              # Codice fiscale, CF giuridico
-        "", lead.get("phone", ""), "", "",   # Telefono fisso, mobile, altro, fax
-        lead.get("email", ""),               # Email
-        page_name,                           # Provenienza (pagina Facebook)
-        lead.get("external_id", ""), "", "", # Personalizzato 1 (lead_id Meta), 2, Altro
-        "", "",                              # Strada, Civico
-        lead.get("locality", ""), "", "",    # Comune, CAP, Provincia
-        campaign, "",                        # Campagna, Lista
-        "", "", date, "", "",                # Esito chiamata, Esito Arch., Data Arch., Note, Operatore
+        "", "",                                              # Ragione sociale, Partita IVA
+        lead.get("last_name", ""),                           # Cognome
+        lead.get("first_name", ""),                          # Nome
+        "", "",                                              # Codice fiscale, CF giuridico
+        "", lead.get("phone", ""), "", "",                   # Telefono fisso, mobile, altro, fax
+        lead.get("email", ""),                               # Email
+        page_name,                                           # Provenienza (pagina Facebook)
+        lead.get("external_id", ""),                         # Personalizzato 1 (Meta lead ID)
+        (lead.get("created_time") or "")[:10],               # Personalizzato 2 (data creazione Meta)
+        "",                                                  # Altro
+        "", "",                                              # Strada, Civico
+        lead.get("locality", ""), "", "",                    # Comune, CAP, Provincia
+        campaign, "",                                        # Campagna, Lista
+        "", "", import_date, "", "",                         # Esito chiam., Esito Arch., Data Arch., Note, Op.
     ]
-    new_file = not os.path.exists(HISTORY_PATH)
-    with open(HISTORY_PATH, "a", newline="", encoding="utf-8") as f:
+    new_file = not os.path.exists(META_HISTORY_PATH)
+    with open(META_HISTORY_PATH, "a", newline="", encoding="utf-8") as f:
         w = csv.writer(f, quoting=csv.QUOTE_ALL)
         if new_file:
             w.writerow(HISTORY_HEADER)
@@ -357,19 +377,44 @@ def _iso_date(raw):
 
 
 def generate_dashboard_data():
-    """Rigenera dashboard_data.js leggendo tutto lo storico CSV (formato EasyCall)."""
+    """Rigenera dashboard_data.js da meta_leads.csv (priorità) + leads_history.csv (legacy EasyCall)."""
     rows = []
-    if os.path.exists(HISTORY_PATH):
-        with open(HISTORY_PATH, "r", newline="", encoding="utf-8") as f:
+    seen_phones = set()  # dedup per telefono: evita doppi conteggi
+
+    # 1) meta_leads.csv: dati importati da Meta con data precisa di importazione
+    if os.path.exists(META_HISTORY_PATH):
+        with open(META_HISTORY_PATH, "r", newline="", encoding="utf-8") as f:
             for d in csv.DictReader(f):
+                phone = (d.get("Telefono mobile") or "").strip()
                 rows.append({
                     "date": _iso_date(d.get("Data Archiviazione")),
                     "page": d.get("Provenienza", ""),
                     "campaign": d.get("Campagna", ""),
                     "locality": d.get("Comune", ""),
                     "has_email": bool((d.get("Email") or "").strip()),
-                    "has_phone": bool((d.get("Telefono mobile") or "").strip()),
+                    "has_phone": bool(phone),
                 })
+                if phone:
+                    seen_phones.add(phone)
+
+    # 2) leads_history.csv: storico export EasyCall (legacy), salta telefoni già contati
+    if os.path.exists(HISTORY_PATH):
+        with open(HISTORY_PATH, "r", newline="", encoding="utf-8") as f:
+            for d in csv.DictReader(f):
+                phone = (d.get("Telefono mobile") or "").strip()
+                if phone and phone in seen_phones:
+                    continue
+                rows.append({
+                    "date": _iso_date(d.get("Data Archiviazione")),
+                    "page": d.get("Provenienza", ""),
+                    "campaign": d.get("Campagna", ""),
+                    "locality": d.get("Comune", ""),
+                    "has_email": bool((d.get("Email") or "").strip()),
+                    "has_phone": bool(phone),
+                })
+                if phone:
+                    seen_phones.add(phone)
+
     payload = {"generated_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), "leads": rows}
     with open(DASHBOARD_DATA_PATH, "w", encoding="utf-8") as f:
         f.write("window.DASHBOARD = " + json.dumps(payload, ensure_ascii=False) + ";\n")
@@ -381,6 +426,7 @@ def main():
     cfg = load_config()
     state = load_state()
     sent_ids = set(state.get("sent_ids", []))
+    meta_history_ids = load_meta_history_ids()
 
     meta_cfg = cfg["meta"]
     ec_cfg = cfg["easycall"]
@@ -391,7 +437,7 @@ def main():
     api_version = meta_cfg.get("api_version", "v25.0")
     lookback_days = int(meta_cfg.get("lookback_days", 7))
 
-    tot_new = tot_sent = tot_skipped = tot_err = 0
+    tot_new = tot_sent = tot_skipped = tot_err = tot_recovered = 0
 
     # 1) scopri pagine + token
     log("Recupero le pagine accessibili (/me/accounts)...")
@@ -423,8 +469,19 @@ def main():
             for raw in raw_leads:
                 lead = normalize_lead(raw, locality_fields)
                 lead_id = lead["external_id"]
-                if not lead_id or lead_id in sent_ids:
+                if not lead_id:
                     continue
+
+                # Recovery: già inviato ma non ancora in meta_leads.csv (es. dopo un merge manuale)
+                if lead_id in sent_ids:
+                    if lead_id not in meta_history_ids:
+                        camp_r = fixed_campaign if mode == "fixed" else route_campaign(lead["locality"], routing)
+                        created = (lead.get("created_time") or "")[:10]
+                        append_history(lead, pname, camp_r, import_date=created)
+                        meta_history_ids.add(lead_id)
+                        tot_recovered += 1
+                    continue
+
                 tot_new += 1
 
                 if not lead["email"] and not lead["phone"]:
@@ -443,6 +500,7 @@ def main():
                 if ok:
                     tot_sent += 1
                     sent_ids.add(lead_id)
+                    meta_history_ids.add(lead_id)
                     save_state({"sent_ids": list(sent_ids)})
                     append_history(lead, pname, campaign)
                     log("  OK [{}] lead {} -> '{}' ({} {})".format(
@@ -454,8 +512,8 @@ def main():
     save_state({"sent_ids": list(sent_ids)})
     generate_dashboard_data()
     log("=== Riepilogo ===")
-    log("Nuovi: {} | Inviati: {} | Saltati (no contatto): {} | Errori: {}".format(
-        tot_new, tot_sent, tot_skipped, tot_err))
+    log("Nuovi: {} | Inviati: {} | Recuperati in history: {} | Saltati (no contatto): {} | Errori: {}".format(
+        tot_new, tot_sent, tot_recovered, tot_skipped, tot_err))
     log("=== Fine ===\n")
     _pausa()
 

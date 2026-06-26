@@ -84,6 +84,9 @@
   .gauge .track{background:var(--line2);border-radius:8px;height:16px;overflow:hidden}
   .gauge .fill{height:100%;border-radius:8px;transition:width .45s ease}
 
+  .col.today .bar{background:var(--arezzo)!important}
+  .col.today .cnt{color:var(--arezzo);font-weight:700}
+
   .empty{color:var(--muted);font-size:13px;padding:24px 0;text-align:center}
   footer{margin-top:30px;color:var(--muted2);font-size:12px;text-align:center}
 
@@ -127,6 +130,12 @@
     <div id="weekly"></div>
   </div>
 
+  <div class="panel">
+    <h2>Storico completo</h2>
+    <div class="cap">Tutti i lead · per settimana · tutta la storia disponibile</div>
+    <div id="alltime"></div>
+  </div>
+
   <div class="grid2">
     <div class="panel">
       <h2>Per zona (campagna)</h2>
@@ -135,7 +144,7 @@
     </div>
     <div class="panel">
       <h2>Per pagina</h2>
-      <div class="cap">Da quale brand arrivano i lead</div>
+      <div class="cap">Da quale brand arrivano i lead · disponibile dopo il primo avvio dello script</div>
       <div class="hbars" id="byPage"></div>
     </div>
   </div>
@@ -198,7 +207,7 @@ function dkey(dt){return dt.getFullYear()+"-"+String(dt.getMonth()+1).padStart(2
 function weekStart(dt){const x=new Date(dt);const dow=(x.getDay()+6)%7;x.setDate(x.getDate()-dow);x.setHours(0,0,0,0);return x;}
 
 let pageFilter="__all__";
-const PAGES=[...new Set(ALL.map(l=>l.page))];
+const PAGES=[...new Set(ALL.map(l=>l.page).filter(Boolean))];
 
 /* ---------- render ---------- */
 function rows(){return pageFilter==="__all__"?ALL:ALL.filter(l=>l.page===pageFilter);}
@@ -233,11 +242,13 @@ function render(){
   renderColumns("daily", buildSeries(R,30,"day"), false);
   // WEEKLY (10 settimane)
   renderColumns("weekly", buildSeries(R,10,"week"), true);
+  // TUTTI (storico completo)
+  renderColumns("alltime", buildAllSeries(R), true);
 
   // breakdown
-  hbars("byCampaign", group(R,"campaign"), c=>campColor(c), shortCamp);
-  hbars("byPage", group(R,"page"), ()=> "var(--ink)", x=>x);
-  hbars("byLocality", group(R,"locality").slice(0,8), ()=> "var(--other)", x=>x||"—");
+  hbars("byCampaign", group(R,"campaign").filter(a=>a.k), c=>campColor(c), shortCamp);
+  hbars("byPage", group(R,"page").filter(a=>a.k), ()=> "var(--ink)", x=>x);
+  hbars("byLocality", group(R,"locality").filter(a=>a.k).slice(0,8), ()=> "var(--other)", x=>x);
 
   // qualità contatti
   const withPhone=R.filter(l=>l.has_phone).length;
@@ -250,6 +261,12 @@ function render(){
 
   document.getElementById("foot").textContent=
     `${fmt(R.length)} lead nel periodo · ${PAGES.length} pagine · fonte: Meta Lead Ads`;
+}
+
+function buildAllSeries(R){
+  const map={};
+  R.forEach(l=>{const d=parseD(l.date);if(!d)return;const k=dkey(weekStart(d));map[k]=(map[k]||0)+1;});
+  return Object.keys(map).sort().map(k=>{const d=parseD(k);return{key:k,label:String(d.getDate())+"/"+(d.getMonth()+1),val:map[k]};});
 }
 
 function buildSeries(R,count,mode){
@@ -276,15 +293,19 @@ function renderColumns(id,series,weekly){
   const el=document.getElementById(id);
   const bars=series.map((s,i)=>{
     const h=Math.round(s.val/max*100);
-    const showLab=weekly?true:(i%5===0||i===series.length-1);
-    return `<div class="col ${weekly?'weekly':''}" title="${s.label}: ${s.val}">
-        <div class="cnt">${s.val||''}</div>
-        <div class="bar" style="height:${Math.max(s.val?6:0,h)}%"></div>
+    const isToday=!weekly&&i===series.length-1;
+    const cnt=s.val||(isToday?'0':'');
+    return `<div class="col ${weekly?'weekly':''}${isToday?' today':''}" title="${s.label}: ${s.val}">
+        <div class="cnt">${cnt}</div>
+        <div class="bar" style="height:${Math.max(s.val?6:(isToday?3:0),h)}%"></div>
       </div>`;
   }).join("");
   const axis=series.map((s,i)=>{
+    const isToday=!weekly&&i===series.length-1;
     const show=weekly?true:(i%5===0||i===series.length-1);
-    return `<span>${show?s.label:""}</span>`;
+    const lbl=show?(isToday?'Oggi':s.label):'';
+    const style=isToday?'color:var(--arezzo);font-weight:700':'';
+    return `<span style="${style}">${lbl}</span>`;
   }).join("");
   el.innerHTML=`<div class="cols">${bars}</div><div class="axis">${axis}</div>`;
 }
