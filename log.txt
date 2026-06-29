@@ -154,3 +154,67 @@
 [2026-06-26 16:57:16] Nuovi: 1 | Inviati: 1 | Recuperati in history: 113 | Saltati (no contatto): 0 | Errori: 0
 [2026-06-26 16:57:16] === Fine ===
 
+[2026-06-29 09:40:05] === Avvio import Meta -> EasyCall ===
+[2026-06-29 09:40:05] Recupero le pagine accessibili (/me/accounts)...
+[2026-06-29 09:40:06] Pagine accessibili: Arredamento Italia (108078727754043), Mobilmarket (93644523828), Maiora Interiors (1840294139572597)
+[2026-06-29 09:40:07] Pagina 'Mobilmarket': 104 moduli trovati
+[2026-06-29 09:40:07]   OK [Mobilmarket] lead 1001781852773761 -> 'LEAD giornalieri Arezzo' (Alex )
+[2026-06-29 09:40:07]   OK [Mobilmarket] lead 862235783624472 -> 'LEAD giornalieri Arezzo' (Cry Vaia)
+[2026-06-29 09:40:07]   OK [Mobilmarket] lead 888916693617753 -> 'LEAD giornalieri Arezzo' (Laura Pasquini)
+[2026-06-29 09:40:07]   OK [Mobilmarket] lead 1326416365738680 -> 'LEAD giornalieri Arezzo' (Daniel Alban)
+[2026-06-29 09:40:07]   OK [Mobilmarket] lead 1670587580914774 -> 'LEAD giornalieri Arezzo' (Eleonora )
+[2026-06-29 09:40:07]   OK [Mobilmarket] lead 1307596341443501 -> 'LEAD giornalieri Arezzo' (Romina Cannoni)
+[2026-06-29 09:40:07]   OK [Mobilmarket] lead 1562190352186888 -> 'LEAD giornalieri Arezzo' (Eleonora Cesaroni)
+[2026-06-29 09:40:07]   OK [Mobilmarket] lead 1045301528440211 -> 'LEAD giornalieri Arezzo' (Marisa Bonarini)
+[2026-06-29 09:40:07]   OK [Mobilmarket] lead 1384977056777398 -> 'LEAD giornalieri Arezzo' (Valentina Costache)
+[2026-06-29 09:40:08]   OK [Mobilmarket] lead 1001277939282769 -> 'LEAD giornalieri Firenze' (Sofia Mariotti)
+[2026-06-29 09:40:08]   OK [Mobilmarket] lead 2072809796924755 -> 'LEAD giornalieri Arezzo' (Monica Mariani)
+[2026-06-29 09:40:08]   OK [Mobilmarket] lead 1564911318497445 -> 'LEAD giornalieri Arezzo' (Alessandra Borgogni)
+[2026-06-29 09:40:08]   OK [Mobilmarket] lead 1795272761638842 -> 'LEAD giornalieri Arezzo' (santiccioli giovanni)
+[2026-06-29 09:40:08]   OK [Mobilmarket] lead 1912015699476894 -> 'LEAD giornalieri Firenze' (Ferdi Beharaj)
+[2026-06-29 09:40:08]   OK [Mobilmarket] lead 1361547762521623 -> 'LEAD giornalieri Arezzo' (Marcella Mader)
+[2026-06-29 09:40:08]   OK [Mobilmarket] lead 978794841727115 -> 'LEAD giornalieri Arezzo' (Maria Pia Berti)
+[2026-06-29 09:40:08]   OK [Mobilmarket] lead 1101192539254430 -> 'LEAD giornalieri Arezzo' (Brunella Paggini)
+[2026-06-29 09:40:09]   OK [Mobilmarket] lead 2479766522507113 -> 'LEAD giornalieri Arezzo' (ValentinaFederici Postopubblico Via dell'Amore)
+[2026-06-29 09:40:09]   OK [Mobilmarket] lead 2876812769327697 -> 'LEAD giornalieri Arezzo' (Michela Pierazzi)
+[2026-06-29 09:40:09]   OK [Mobilmarket] lead 1036705162264595 -> 'LEAD giornalieri Arezzo' (Simona drobota)
+[2026-06-29 09:40:13]   OK [Mobilmarket] lead 880899427827526 -> 'LEAD giornalieri Arezzo' (Lorena Tortorici)
+[2026-06-29 09:40:13]   OK [Mobilmarket] lead 1826107322105029 -> 'LEAD giornalieri Firenze' (Zija Koleci)
+[2026-06-29 09:40:13]   OK [Mobilmarket] lead 2506527776526802 -> 'LEAD giornalieri Firenze' (Rita Castro)
+[2026-06-29 09:40:13]   OK [Mobilmarket] lead 904008508618223 -> 'LEAD giornalieri Figline' (Anna Maria biancalani)
+[2026-06-29 09:40:13]   OK [Mobilmarket] lead 985815051017780 -> 'LEAD giornalieri Firenze' (Gilberto Montori)
+[2026-06-29 09:40:13]   OK [Mobilmarket] lead 1338511258389469 -> 'LEAD giornalieri Firenze' (Melinda Torres)
+[2026-06-29 09:40:13]   OK [Mobilmarket] lead 2992216297786701 -> 'LEAD giornalieri Figline' (Negibe Mustafa)
+[2026-06-29 09:40:40] Pagina 'Arredamento Italia': 8 moduli trovati
+[2026-06-29 09:40:40]   OK [Arredamento Italia] lead 1037621085457396 -> 'LEAD giornalieri Firenze' (Elena Sabatelli)
+[2026-06-29 09:40:42] Pagina 'Maiora Interiors': 4 moduli trovati
+[2026-06-29 09:40:43]   OK [Maiora Interiors] lead 981323241390582 -> 'LEAD giornalieri Maiora' (Lina Bianconi)
+[2026-06-29 09:40:44]   OK [Maiora Interiors] lead 1003204085914913 -> 'LEAD giornalieri Maiora' (Gabriele Giovannini)
+[2026-06-29 09:40:44]   OK [Maiora Interiors] lead 979409298299599 -> 'LEAD giornalieri Maiora' (Shakila Disanayaka)
+[2026-06-29 09:40:44]   OK [Maiora Interiors] lead 1038435738863184 -> 'LEAD giornalieri Maiora' (Melinda Torres)
+[2026-06-29 09:40:44]   OK [Maiora Interiors] lead 2181502689064817 -> 'LEAD giornalieri Maiora' (Alberto Meacci)
+[2026-06-29 09:40:44] === Riepilogo ===
+[2026-06-29 09:40:44] Nuovi: 33 | Inviati: 33 | Recuperati in history: 0 | Saltati (no contatto): 0 | Errori: 0
+[2026-06-29 09:40:44] === Fine ===
+
+[2026-06-29 10:19:00] === Avvio import Meta -> EasyCall ===
+[2026-06-29 10:19:00] Recupero le pagine accessibili (/me/accounts)...
+[2026-06-29 10:19:01] Pagine accessibili: Arredamento Italia (108078727754043), Mobilmarket (93644523828), Maiora Interiors (1840294139572597)
+[2026-06-29 10:19:02] Pagina 'Mobilmarket': 104 moduli trovati
+[2026-06-29 10:19:33] Pagina 'Arredamento Italia': 8 moduli trovati
+[2026-06-29 10:19:36] Pagina 'Maiora Interiors': 4 moduli trovati
+[2026-06-29 10:19:37] === Riepilogo ===
+[2026-06-29 10:19:37] Nuovi: 0 | Inviati: 0 | Recuperati in history: 0 | Saltati (no contatto): 0 | Errori: 0
+[2026-06-29 10:19:37] === Fine ===
+
+[2026-06-29 10:33:43] === Avvio import Meta -> EasyCall ===
+[2026-06-29 10:33:43] Recupero le pagine accessibili (/me/accounts)...
+[2026-06-29 10:33:44] Pagine accessibili: Arredamento Italia (108078727754043), Mobilmarket (93644523828), Maiora Interiors (1840294139572597)
+[2026-06-29 10:33:45] Pagina 'Mobilmarket': 104 moduli trovati
+[2026-06-29 10:34:13] Pagina 'Arredamento Italia': 8 moduli trovati
+[2026-06-29 10:34:16] Pagina 'Maiora Interiors': 4 moduli trovati
+[2026-06-29 10:34:17] Sync storico: 147 righe di meta_leads.csv mancanti in leads_history.csv -> aggiungo.
+[2026-06-29 10:34:17] === Riepilogo ===
+[2026-06-29 10:34:17] Nuovi: 0 | Inviati: 0 | Recuperati in history: 0 | Saltati (no contatto): 0 | Errori: 0
+[2026-06-29 10:34:17] === Fine ===
+

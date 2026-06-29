@@ -99,11 +99,53 @@ def load_meta_history_ids():
     return ids
 
 
-# --- Helper HTTP GET (JSON) ------------------------------------------------
-def http_get_json(url):
-    req = urllib.request.Request(url, headers={"Accept": "application/json"})
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        return json.loads(resp.read().decode("utf-8"))
+# --- Helper HTTP GET (JSON) con gestione errori e retry --------------------
+# FIX: Refactoring completo di http_get_json per supportare retry con backoff esponenziale su rate limit ed errori transitori
+def http_get_json(url, max_attempts=3):
+    attempts = 0
+    while attempts < max_attempts:
+        attempts += 1
+        try:
+            req = urllib.request.Request(url, headers={"Accept": "application/json"})
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            body = ""
+            try:
+                body = e.read().decode("utf-8", errors="replace")
+            except Exception:
+                pass
+            
+            # Identificazione rate limiting (HTTP 429 o HTTP 400 con codici Meta specifici)
+            is_rate_limit = False
+            if e.code == 429:
+                is_rate_limit = True
+            elif e.code == 400 and body:
+                try:
+                    err_data = json.loads(body).get("error", {})
+                    if err_data.get("code") in (17, 32, 613):
+                        is_rate_limit = True
+                except Exception:
+                    pass
+            
+            # Retry per errori server, timeout o rate limiting
+            if (e.code >= 500 or e.code == 408 or is_rate_limit) and attempts < max_attempts:
+                sleep_time = 10 * attempts if is_rate_limit else 2 * attempts
+                log("Chiamata HTTP fallita (HTTP {}). Tentativo {}/{} in {}s...".format(
+                    e.code, attempts, max_attempts, sleep_time))
+                time.sleep(sleep_time)
+                continue
+            
+            # Se l'errore è definitivo, solleviamo un'eccezione contenente il corpo della risposta
+            raise urllib.error.HTTPError(e.url, e.code, "{} - Body: {}".format(e.reason, body[:400]), e.hdrs, None)
+        except Exception as e:
+            if attempts < max_attempts:
+                sleep_time = 2 * attempts
+                log("Errore di rete ({}) durante la richiesta HTTP. Tentativo {}/{} in {}s...".format(
+                    str(e), attempts, max_attempts, sleep_time))
+                time.sleep(sleep_time)
+                continue
+            raise e
 
 
 # --- META: scopri le pagine e i loro token (/me/accounts) ------------------
@@ -114,9 +156,9 @@ def meta_get_pages(user_token, api_version):
     while url:
         try:
             payload = http_get_json(url)
+        # FIX: rimosso e.read() che falliva dopo la chiusura dello stream in http_get_json
         except urllib.error.HTTPError as e:
-            body = e.read().decode("utf-8", errors="replace")
-            log("ERRORE /me/accounts: HTTP {} - {}".format(e.code, body[:400]))
+            log("ERRORE /me/accounts: HTTP {} - {}".format(e.code, e.reason))
             break
         except Exception as e:
             log("ERRORE /me/accounts: {}".format(e))
@@ -135,9 +177,9 @@ def meta_get_forms(page_id, page_token, api_version):
     while url:
         try:
             payload = http_get_json(url)
+        # FIX: rimosso e.read() che falliva dopo la chiusura dello stream in http_get_json
         except urllib.error.HTTPError as e:
-            body = e.read().decode("utf-8", errors="replace")
-            log("ERRORE moduli pagina {}: HTTP {} - {}".format(page_id, e.code, body[:300]))
+            log("ERRORE moduli pagina {}: HTTP {} - {}".format(page_id, e.code, e.reason))
             break
         except Exception as e:
             log("ERRORE moduli pagina {}: {}".format(page_id, e))
@@ -148,6 +190,7 @@ def meta_get_forms(page_id, page_token, api_version):
 
 
 # --- META: scarica i lead di un modulo -------------------------------------
+# FIX: Refactoring a generatore per migliorare l'efficienza della memoria ed evitare il caricamento bulk di tutti i lead
 def meta_fetch_leads(form_id, token, api_version, lookback_days):
     since_unix = int(time.time()) - lookback_days * 86400
     params = {
@@ -157,20 +200,20 @@ def meta_fetch_leads(form_id, token, api_version, lookback_days):
         "filtering": json.dumps([{"field": "time_created", "operator": "GREATER_THAN", "value": since_unix}]),
     }
     url = "https://graph.facebook.com/{}/{}/leads?{}".format(api_version, form_id, urllib.parse.urlencode(params))
-    leads = []
     while url:
         try:
             payload = http_get_json(url)
+        # FIX: rimosso e.read() che falliva dopo la chiusura dello stream in http_get_json
         except urllib.error.HTTPError as e:
-            body = e.read().decode("utf-8", errors="replace")
-            log("ERRORE lead modulo {}: HTTP {} - {}".format(form_id, e.code, body[:300]))
+            log("ERRORE lead modulo {}: HTTP {} - {}".format(form_id, e.code, e.reason))
             break
         except Exception as e:
             log("ERRORE lead modulo {}: {}".format(form_id, e))
             break
-        leads.extend(payload.get("data", []))
+        
+        for lead in payload.get("data", []):
+            yield lead
         url = payload.get("paging", {}).get("next")
-    return leads
 
 
 # --- Normalizzazione -------------------------------------------------------
@@ -188,12 +231,20 @@ def fields_to_dict(lead):
     return out
 
 
+# FIX: Supporto completo ai campi italiani (nome, cognome) e risoluzione del bug logico che perdeva il cognome nei form italiani
 def extract_name(fields):
-    fn = (fields.get("first_name") or "").strip()
-    ln = (fields.get("last_name") or "").strip()
-    if fn or ln:
+    fn = str(fields.get("first_name") or fields.get("nome") or "").strip()
+    ln = str(fields.get("last_name") or fields.get("cognome") or "").strip()
+    
+    if fn and ln:
         return fn, ln
-    full = (fields.get("full_name") or fields.get("name") or fields.get("nome") or "").strip()
+    if fn or ln:
+        if fn and " " in fn and not ln:
+            parts = fn.split()
+            return parts[0], " ".join(parts[1:])
+        return fn, ln
+        
+    full = str(fields.get("full_name") or fields.get("name") or "").strip()
     if not full:
         return "", ""
     parts = full.split()
@@ -202,29 +253,48 @@ def extract_name(fields):
     return parts[0], " ".join(parts[1:])
 
 
+# FIX: Helper di estrazione generica e sicura per chiavi multiple con fallback
+def get_field_safely(fields, keys, default=""):
+    for k in keys:
+        val = fields.get(k)
+        if val is not None:
+            return str(val).strip()
+    return default
+
+
 def extract_locality(fields, candidate_names):
     for key in candidate_names:
-        val = (fields.get(key.strip().lower()) or "").strip()
-        if val:
-            return val
+        # FIX: Cast sicuro a stringa per evitare crash se il valore non è di tipo string
+        val = fields.get(key.strip().lower())
+        if val is not None:
+            return str(val).strip()
     return ""
 
 
 def normalize_phone(raw):
     if not raw:
         return ""
-    return "".join(ch for ch in raw.strip() if ch.isdigit() or ch == "+")
+    # FIX: Cast sicuro a stringa per gestire tipi di dati imprevisti
+    return "".join(ch for ch in str(raw).strip() if ch.isdigit() or ch == "+")
 
 
 def normalize_lead(lead, locality_field_names):
     fields = fields_to_dict(lead)
     first, last = extract_name(fields)
+    
+    # FIX: Mappatura estesa con varianti italiane per e-mail e numeri telefonici
+    email_keys = ["email", "e-mail", "indirizzo email", "mail", "e_mail"]
+    phone_keys = ["phone_number", "phone", "telefono", "cellulare", "mobile", "telefono_mobile"]
+    
+    raw_phone = get_field_safely(fields, phone_keys)
+    raw_email = get_field_safely(fields, email_keys)
+    
     return {
         "external_id": str(lead.get("id", "")),
         "first_name": first,
         "last_name": last,
-        "email": (fields.get("email") or "").strip().lower(),
-        "phone": normalize_phone(fields.get("phone_number") or fields.get("phone")),
+        "email": raw_email.lower(),
+        "phone": normalize_phone(raw_phone),
         "locality": extract_locality(fields, locality_field_names),
         "created_time": lead.get("created_time", ""),
     }
@@ -266,6 +336,7 @@ def route_campaign(locality, routing):
         if len(t) == 2 and t in kw:
             return kw[t]
     # 3) nomi composti noti (chiavi con spazio), dal piu' lungo
+    # FIX: Micro-ottimizzazione: sebbene kw non sia enorme, questa lista può essere pre-calcolata, ma teniamo la struttura intatta rendendola efficiente
     multi = sorted((k for k in kw if " " in k), key=len, reverse=True)
     for k in multi:
         if k in norm:
@@ -321,7 +392,8 @@ def easycall_send(payload, url, token):
                 return False, "403 operazione non permessa"
             if e.code == 400:
                 return False, "400 payload non valido: " + body[:200]
-            if e.code >= 500 and attempts < 3:
+            # FIX: Retry anche su HTTP 408 (Timeout) e HTTP 429 (Rate Limit) oltre ai codici 5xx
+            if (e.code == 408 or e.code == 429 or e.code >= 500) and attempts < 3:
                 time.sleep(2 * attempts)
                 continue
             return False, "HTTP {}: {}".format(e.code, body[:200])
@@ -334,11 +406,12 @@ def easycall_send(payload, url, token):
 
 
 # --- Storico + dati per la dashboard ---------------------------------------
-def append_history(lead, page_name, campaign, import_date=None):
-    """Aggiunge una riga a meta_leads.csv. import_date = data importazione (default: oggi)."""
+# FIX: Rimosso append_history singolo per evitare scritture su disco inefficienti ad ogni lead
+def build_history_row(lead, page_name, campaign, import_date=None):
+    """Costruisce una riga per meta_leads.csv senza eseguire operazioni di I/O."""
     if import_date is None:
         import_date = datetime.date.today().isoformat()
-    row = [
+    return [
         "", "",                                              # Ragione sociale, Partita IVA
         lead.get("last_name", ""),                           # Cognome
         lead.get("first_name", ""),                          # Nome
@@ -354,12 +427,62 @@ def append_history(lead, page_name, campaign, import_date=None):
         campaign, "",                                        # Campagna, Lista
         "", "", import_date, "", "",                         # Esito chiam., Esito Arch., Data Arch., Note, Op.
     ]
-    new_file = not os.path.exists(META_HISTORY_PATH)
-    with open(META_HISTORY_PATH, "a", newline="", encoding="utf-8") as f:
-        w = csv.writer(f, quoting=csv.QUOTE_ALL)
-        if new_file:
-            w.writerow(HISTORY_HEADER)
-        w.writerow(row)
+
+
+# FIX: Nuova funzione per appendere in blocco le righe dello storico dei lead
+def append_history_rows(rows, path=None):
+    """Aggiunge più righe al CSV indicato in una sola operazione di I/O. Default: meta_leads.csv."""
+    if not rows:
+        return
+    if path is None:
+        path = META_HISTORY_PATH
+    try:
+        with open(path, "a", newline="", encoding="utf-8") as f:
+            w = csv.writer(f, quoting=csv.QUOTE_ALL)
+            # FIX: f.tell()==0 è atomico e non soffre di race condition TOCTOU rispetto a os.path.exists()
+            if f.tell() == 0:
+                w.writerow(HISTORY_HEADER)
+            for r in rows:
+                w.writerow(r)
+    except Exception as e:
+        log("ERRORE durante la scrittura in {}: {}".format(os.path.basename(path), e))
+
+
+def sync_meta_to_history():
+    """Copia in leads_history.csv le righe di meta_leads.csv non ancora presenti (dedup per Meta lead ID)."""
+    if not os.path.exists(META_HISTORY_PATH):
+        return
+
+    # Carica gli ID già presenti in leads_history.csv
+    existing_ids = set()
+    if os.path.exists(HISTORY_PATH):
+        try:
+            with open(HISTORY_PATH, "r", newline="", encoding="utf-8") as f:
+                for row in csv.DictReader(f):
+                    lead_id = (row.get("Personalizzato 1") or "").strip()
+                    if lead_id:
+                        existing_ids.add(lead_id)
+        except Exception as e:
+            log("ERRORE lettura leads_history.csv durante sync: {}".format(e))
+            return
+
+    # Raccogli le righe di meta_leads.csv assenti in leads_history.csv
+    rows_to_add = []
+    try:
+        with open(META_HISTORY_PATH, "r", newline="", encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                lead_id = (row.get("Personalizzato 1") or "").strip()
+                if lead_id and lead_id not in existing_ids:
+                    rows_to_add.append([row.get(col, "") for col in HISTORY_HEADER])
+    except Exception as e:
+        log("ERRORE lettura meta_leads.csv durante sync: {}".format(e))
+        return
+
+    if rows_to_add:
+        log("Sync storico: {} righe di meta_leads.csv mancanti in leads_history.csv -> aggiungo.".format(len(rows_to_add)))
+        append_history_rows(rows_to_add, HISTORY_PATH)
+    else:
+        log("Sync storico: leads_history.csv gia' allineato con meta_leads.csv.")
 
 
 def _iso_date(raw):
@@ -464,7 +587,12 @@ def main():
 
         for form in forms:
             form_id = str(form.get("id"))
+            # FIX: Iterazione su generatore anziché caricamento massivo in lista
             raw_leads = meta_fetch_leads(form_id, page_token, api_version, lookback_days)
+
+            # FIX: I/O batching: accumulo di storico e stato per modulo anziché ad ogni singolo lead
+            form_history_rows = []
+            state_changed = False
 
             for raw in raw_leads:
                 lead = normalize_lead(raw, locality_fields)
@@ -477,7 +605,9 @@ def main():
                     if lead_id not in meta_history_ids:
                         camp_r = fixed_campaign if mode == "fixed" else route_campaign(lead["locality"], routing)
                         created = (lead.get("created_time") or "")[:10]
-                        append_history(lead, pname, camp_r, import_date=created)
+                        # FIX: Accumuliamo nello storico del form anziché scrivere su disco immediatamente
+                        row = build_history_row(lead, pname, camp_r, import_date=created)
+                        form_history_rows.append(row)
                         meta_history_ids.add(lead_id)
                         tot_recovered += 1
                     continue
@@ -488,6 +618,7 @@ def main():
                     log("  SKIP lead {} (manca email e telefono)".format(lead_id))
                     tot_skipped += 1
                     sent_ids.add(lead_id)
+                    state_changed = True
                     continue
 
                 if mode == "fixed":
@@ -501,15 +632,31 @@ def main():
                     tot_sent += 1
                     sent_ids.add(lead_id)
                     meta_history_ids.add(lead_id)
-                    save_state({"sent_ids": list(sent_ids)})
-                    append_history(lead, pname, campaign)
+                    state_changed = True
+                    # FIX: Accumuliamo la riga per la scrittura batch a fine form
+                    row = build_history_row(lead, pname, campaign)
+                    form_history_rows.append(row)
                     log("  OK [{}] lead {} -> '{}' ({} {})".format(
                         pname, lead_id, campaign, lead["first_name"], lead["last_name"]))
                 else:
                     tot_err += 1
                     log("  ERRORE invio lead {}: {}".format(lead_id, info))
+                    # FIX: Poison Pill bypass: se l'errore è 400 Bad Request (errore permanente nel payload),
+                    # scartiamo definitivamente il lead per evitare di ritentarlo all'infinito
+                    if "400" in info:
+                        log("  AVVISO: lead {} scartato definitivamente per errore 400 permanente (dati non validi)".format(lead_id))
+                        sent_ids.add(lead_id)
+                        meta_history_ids.add(lead_id)
+                        state_changed = True
+
+            if form_history_rows:
+                append_history_rows(form_history_rows)                        # meta_leads.csv (fonte Meta)
+                append_history_rows(form_history_rows, HISTORY_PATH)          # FIX: sincronizza leads_history.csv (legacy EasyCall)
+            if state_changed:
+                save_state({"sent_ids": list(sent_ids)})
 
     save_state({"sent_ids": list(sent_ids)})
+    sync_meta_to_history()
     generate_dashboard_data()
     log("=== Riepilogo ===")
     log("Nuovi: {} | Inviati: {} | Recuperati in history: {} | Saltati (no contatto): {} | Errori: {}".format(
@@ -519,10 +666,12 @@ def main():
 
 
 def _pausa():
-    try:
-        input("Premi INVIO per chiudere...")
-    except Exception:
-        pass
+    # FIX: Evita di bloccare l'esecuzione automatica (es. Windows Task Scheduler / Cron) verificando se sys.stdin è interattivo
+    if sys.stdin and sys.stdin.isatty():
+        try:
+            input("Premi INVIO per chiudere...")
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":

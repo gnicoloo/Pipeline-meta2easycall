@@ -4,7 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Pannello Lead — Meta → EasyCall</title>
-<!-- Dati reali generati dallo script. Se manca, si usano dati di esempio. -->
 <script src="dashboard_data.js" onerror="window.__noData=true"></script>
 <style>
   :root{
@@ -25,7 +24,6 @@
   .eyebrow{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted2);font-weight:700}
   .num{font-variant-numeric:tabular-nums;letter-spacing:-.02em}
 
-  /* header */
   header.top{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap;
     border-bottom:2px solid var(--ink);padding-bottom:16px;margin-bottom:24px}
   header.top h1{margin:.25em 0 0;font-size:clamp(26px,4vw,40px);font-weight:700;letter-spacing:-.03em;line-height:1}
@@ -35,7 +33,6 @@
   .demo-banner{background:#FBEFE4;border:1px solid #E9C9A9;color:#8a4b1d;
     padding:10px 14px;border-radius:10px;font-size:13px;margin-bottom:22px}
 
-  /* filters */
   .filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px}
   .filters button{font:inherit;font-size:13px;font-weight:600;color:var(--muted);
     background:var(--panel);border:1px solid var(--line);padding:7px 14px;border-radius:999px;cursor:pointer;
@@ -44,7 +41,6 @@
   .filters button[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
   .filters button:focus-visible{outline:2px solid var(--firenze);outline-offset:2px}
 
-  /* kpi */
   .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:26px}
   .kpi{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow)}
   .kpi .v{font-size:clamp(30px,5vw,44px);font-weight:700;line-height:1;margin-top:10px}
@@ -52,23 +48,22 @@
   .kpi.accent{position:relative;overflow:hidden}
   .kpi.accent::after{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--arezzo)}
 
-  /* panels */
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
   .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px 20px;box-shadow:var(--shadow);margin-bottom:18px}
   .panel h2{margin:0;font-size:14px;font-weight:700;letter-spacing:-.01em}
   .panel .cap{color:var(--muted);font-size:12px;margin:3px 0 16px}
 
-  /* daily / weekly columns chart */
   .cols{display:flex;align-items:flex-end;gap:3px;height:170px;border-bottom:1px solid var(--line);padding-top:6px}
   .col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;min-width:0}
   .col .bar{width:100%;max-width:26px;background:var(--ink);border-radius:4px 4px 0 0;transition:height .4s ease}
   .col.weekly .bar{background:var(--firenze)}
   .col:hover .bar{opacity:.78}
   .col .cnt{font-size:10px;color:var(--muted);margin-bottom:4px;font-variant-numeric:tabular-nums;height:12px}
+  .col.today .bar{background:var(--arezzo)!important}
+  .col.today .cnt{color:var(--arezzo);font-weight:700}
   .axis{display:flex;gap:3px;margin-top:6px}
   .axis span{flex:1;text-align:center;font-size:10px;color:var(--muted2);min-width:0;overflow:hidden;white-space:nowrap}
 
-  /* horizontal bars */
   .hbars{display:flex;flex-direction:column;gap:11px;margin-top:4px}
   .hrow{display:grid;grid-template-columns:120px 1fr 42px;align-items:center;gap:12px}
   .hrow .lab{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -76,16 +71,12 @@
   .hrow .fill{height:100%;border-radius:7px;transition:width .45s ease}
   .hrow .val{font-size:13px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
 
-  /* gauges */
   .gauge{margin-top:6px}
   .gauge+.gauge{margin-top:18px}
   .gauge .gl{display:flex;justify-content:space-between;font-size:13px;margin-bottom:7px}
   .gauge .gl b{font-weight:700}
   .gauge .track{background:var(--line2);border-radius:8px;height:16px;overflow:hidden}
   .gauge .fill{height:100%;border-radius:8px;transition:width .45s ease}
-
-  .col.today .bar{background:var(--arezzo)!important}
-  .col.today .cnt{color:var(--arezzo);font-weight:700}
 
   .empty{color:var(--muted);font-size:13px;padding:24px 0;text-align:center}
   footer{margin-top:30px;color:var(--muted2);font-size:12px;text-align:center}
@@ -115,238 +106,394 @@
   </div>
 
   <div class="filters" id="filters"></div>
+  <div class="kpis"    id="kpis"></div>
+  <div                 id="main-panels"></div>
+  <footer              id="foot"></footer>
 
-  <div class="kpis" id="kpis"></div>
-
-  <div class="panel">
-    <h2>Andamento giornaliero</h2>
-    <div class="cap" id="dailyCap">Lead al giorno · ultimi 30 giorni</div>
-    <div id="daily"></div>
-  </div>
-
-  <div class="panel">
-    <h2>Andamento settimanale</h2>
-    <div class="cap">Lead per settimana (lun–dom) · ultime 10 settimane</div>
-    <div id="weekly"></div>
-  </div>
-
-  <div class="panel">
-    <h2>Storico completo</h2>
-    <div class="cap">Tutti i lead · per settimana · tutta la storia disponibile</div>
-    <div id="alltime"></div>
-  </div>
-
-  <div class="grid2">
-    <div class="panel">
-      <h2>Per zona (campagna)</h2>
-      <div class="cap">Come sono stati instradati su EasyCall</div>
-      <div class="hbars" id="byCampaign"></div>
-    </div>
-    <div class="panel">
-      <h2>Per pagina</h2>
-      <div class="cap">Da quale brand arrivano i lead · disponibile dopo il primo avvio dello script</div>
-      <div class="hbars" id="byPage"></div>
-    </div>
-  </div>
-
-  <div class="grid2">
-    <div class="panel">
-      <h2>Località principali</h2>
-      <div class="cap">Top 8 per numero di lead</div>
-      <div class="hbars" id="byLocality"></div>
-    </div>
-    <div class="panel">
-      <h2>Qualità dei contatti</h2>
-      <div class="cap">Quota di lead con recapito utilizzabile dal dialer</div>
-      <div id="quality"></div>
-    </div>
-  </div>
-
-  <footer id="foot"></footer>
 </div>
-
 <script>
-/* ---------- caricamento dati (reali o demo) ---------- */
-function makeDemo(){
-  const pages=["Mobilmarket","Arredamento Italia","Maiora Interiors"];
-  const camps={"Mobilmarket":["LEAD giornalieri Arezzo","LEAD giornalieri Firenze","LEAD giornalieri Figline"],
-               "Arredamento Italia":["LEAD giornalieri Firenze","LEAD giornalieri Arezzo"],
-               "Maiora Interiors":["LEAD giornalieri Maiora"]};
-  const locs=["Arezzo","Firenze","Cortona","Viareggio","Grosseto","Scandicci","Livorno","Sansepolcro","Pisa"];
-  let seed=7; const rnd=()=> (seed=(seed*9301+49297)%233280)/233280;
-  const leads=[]; const today=new Date();
-  for(let d=0;d<70;d++){
-    const day=new Date(today); day.setDate(today.getDate()-d);
-    const iso=day.toISOString().slice(0,10);
-    const n=2+Math.floor(rnd()*15);
-    for(let i=0;i<n;i++){
-      const pg=pages[Math.floor(rnd()*pages.length)];
-      const cs=camps[pg]; const cp=cs[Math.floor(rnd()*cs.length)];
-      leads.push({date:iso,page:pg,campaign:cp,locality:locs[Math.floor(rnd()*locs.length)],
-        has_email:rnd()>0.3,has_phone:rnd()>0.15});
+/* ═══════════════════════════════════════════════════════════════════════════
+   CONFIG — modifica solo questo blocco; non toccare il resto del file
+   ═══════════════════════════════════════════════════════════════════════════ */
+const CONFIG = {
+  /* finestre temporali */
+  dailyDays:     30,   // giorni nell'andamento giornaliero
+  weeklyWeeks:   10,   // settimane nell'andamento settimanale
+  topLocalities:  8,   // max righe nel breakdown per località
+
+  /* toggle pannelli (true = visibile, false = non renderizzato) */
+  showWeekly:       true,
+  showAllTime:      true,
+  showByPage:       true,
+  showLocality:     true,
+  showQualityGauge: true,
+
+  /* colori campagne: chiave = sottostringa del nome campagna (minuscolo) */
+  campaignColors: {
+    arezzo:  'var(--arezzo)',
+    figline: 'var(--figline)',
+    firenze: 'var(--firenze)',
+    maiora:  'var(--maiora)',
+    default: 'var(--other)',
+  },
+};
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DATI (reali o demo)
+   ═══════════════════════════════════════════════════════════════════════════ */
+function makeDemo() {
+  const pages = ['Mobilmarket', 'Arredamento Italia', 'Maiora Interiors'];
+  const camps = {
+    'Mobilmarket':        ['LEAD giornalieri Arezzo', 'LEAD giornalieri Firenze', 'LEAD giornalieri Figline'],
+    'Arredamento Italia': ['LEAD giornalieri Firenze', 'LEAD giornalieri Arezzo'],
+    'Maiora Interiors':   ['LEAD giornalieri Maiora'],
+  };
+  const locs = ['Arezzo','Firenze','Cortona','Viareggio','Grosseto','Scandicci','Livorno','Sansepolcro','Pisa'];
+  let seed = 7;
+  const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+  const leads = [];
+  const today = new Date();
+  for (let d = 0; d < 70; d++) {
+    const day = new Date(today); day.setDate(today.getDate() - d);
+    const iso = dkey(day);
+    const n = 2 + Math.floor(rnd() * 15);
+    for (let i = 0; i < n; i++) {
+      const pg = pages[Math.floor(rnd() * pages.length)];
+      const cs = camps[pg];
+      leads.push({
+        date: iso, page: pg, campaign: cs[Math.floor(rnd() * cs.length)],
+        locality: locs[Math.floor(rnd() * locs.length)],
+        has_email: rnd() > 0.3, has_phone: rnd() > 0.15,
+      });
     }
   }
-  return {generated_at:"(dati di esempio)",leads};
+  return { generated_at: '(dati di esempio)', leads };
 }
-const DATA = (window.DASHBOARD && window.DASHBOARD.leads && window.DASHBOARD.leads.length)
-  ? window.DASHBOARD : makeDemo();
+
+const RAW   = (window.DASHBOARD && window.DASHBOARD.leads && window.DASHBOARD.leads.length)
+                ? window.DASHBOARD : makeDemo();
 const IS_DEMO = !(window.DASHBOARD && window.DASHBOARD.leads && window.DASHBOARD.leads.length);
 
-/* ---------- helper ---------- */
-const ALL=DATA.leads;
-const fmt=n=>n.toLocaleString("it-IT");
-function campColor(c){c=(c||"").toLowerCase();
-  if(c.includes("arezzo"))return"var(--arezzo)";
-  if(c.includes("figline"))return"var(--figline)";
-  if(c.includes("firenze"))return"var(--firenze)";
-  if(c.includes("maiora"))return"var(--maiora)";
-  return"var(--other)";}
-function shortCamp(c){return (c||"").replace(/lead\s+giornalieri\s+/i,"").trim()||"—";}
-function parseD(s){if(!s||s.length<10)return null;const[y,m,d]=(s.slice(0,10)).split("-").map(Number);if(!y||!m||!d)return null;return new Date(y,m-1,d);}
-function dkey(dt){return dt.getFullYear()+"-"+String(dt.getMonth()+1).padStart(2,"0")+"-"+String(dt.getDate()).padStart(2,"0");}
-function weekStart(dt){const x=new Date(dt);const dow=(x.getDay()+6)%7;x.setDate(x.getDate()-dow);x.setHours(0,0,0,0);return x;}
-
-let pageFilter="__all__";
-const PAGES=[...new Set(ALL.map(l=>l.page).filter(Boolean))];
-
-/* ---------- render ---------- */
-function rows(){return pageFilter==="__all__"?ALL:ALL.filter(l=>l.page===pageFilter);}
-
-function render(){
-  const R=rows();
-  const today=new Date();today.setHours(0,0,0,0);
-  const todayK=dkey(today);
-  const wk0=weekStart(today);
-  const last7=new Date(today);last7.setDate(today.getDate()-6);
-
-  const cntToday=R.filter(l=>l.date===todayK).length;
-  const cnt7=R.filter(l=>{const d=parseD(l.date);return d&&d>=last7&&d<=today;}).length;
-  // media giornaliera ultimi 30 gg (solo giorni con dati nello storico)
-  const d30=new Date(today);d30.setDate(today.getDate()-29);
-  const in30=R.filter(l=>{const d=parseD(l.date);return d&&d>=d30&&d<=today;});
-  const days30=new Set(in30.map(l=>l.date)).size||1;
-  const avg=(in30.length/days30);
-
-  // KPI
-  const withDate=R.filter(l=>l.date).length;
-  const noDate=R.length-withDate;
-  document.getElementById("kpis").innerHTML=[
-    ["Oggi",fmt(cntToday),"lead importati oggi","accent"],
-    ["Ultimi 7 giorni",fmt(cnt7),"settimana corrente",""],
-    ["Media giornaliera",avg.toFixed(1),"sugli ultimi 30 giorni",""],
-    ["Totale storico",fmt(R.length),(noDate?`di cui ${fmt(noDate)} storici`:"da quando registri i dati"),""],
-  ].map(([e,v,s,a])=>`<div class="kpi ${a}"><div class="eyebrow">${e}</div>
-      <div class="v num">${v}</div><div class="sub">${s}</div></div>`).join("");
-
-  // DAILY (30 gg)
-  renderColumns("daily", buildSeries(R,30,"day"), false);
-  // WEEKLY (10 settimane)
-  renderColumns("weekly", buildSeries(R,10,"week"), true);
-  // TUTTI (storico completo)
-  renderColumns("alltime", buildAllSeries(R), true);
-
-  // breakdown
-  hbars("byCampaign", group(R,"campaign").filter(a=>a.k), c=>campColor(c), shortCamp);
-  hbars("byPage", group(R,"page").filter(a=>a.k), ()=> "var(--ink)", x=>x);
-  hbars("byLocality", group(R,"locality").filter(a=>a.k).slice(0,8), ()=> "var(--other)", x=>x);
-
-  // qualità contatti
-  const withPhone=R.filter(l=>l.has_phone).length;
-  const withEmail=R.filter(l=>l.has_email).length;
-  const pPhone=R.length?Math.round(withPhone/R.length*100):0;
-  const pEmail=R.length?Math.round(withEmail/R.length*100):0;
-  document.getElementById("quality").innerHTML=
-    gauge("Con telefono",pPhone,withPhone,R.length,"var(--arezzo)")+
-    gauge("Con email",pEmail,withEmail,R.length,"var(--firenze)");
-
-  document.getElementById("foot").textContent=
-    `${fmt(R.length)} lead nel periodo · ${PAGES.length} pagine · fonte: Meta Lead Ads`;
+/* ═══════════════════════════════════════════════════════════════════════════
+   HELPER DATE (pure functions, nessuno stato)
+   ═══════════════════════════════════════════════════════════════════════════ */
+function dkey(dt) {
+  return dt.getFullYear() + '-'
+    + String(dt.getMonth() + 1).padStart(2, '0') + '-'
+    + String(dt.getDate()).padStart(2, '0');
+}
+function parseD(s) {
+  if (!s || s.length < 10) return null;
+  const [y, m, d] = s.slice(0, 10).split('-').map(Number);
+  return (y && m && d) ? new Date(y, m - 1, d) : null;
+}
+function weekStart(dt) {
+  const x = new Date(dt);
+  x.setDate(x.getDate() - (x.getDay() + 6) % 7);
+  x.setHours(0, 0, 0, 0);
+  return x;
 }
 
-function buildAllSeries(R){
-  const map={};
-  R.forEach(l=>{const d=parseD(l.date);if(!d)return;const k=dkey(weekStart(d));map[k]=(map[k]||0)+1;});
-  return Object.keys(map).sort().map(k=>{const d=parseD(k);return{key:k,label:String(d.getDate())+"/"+(d.getMonth()+1),val:map[k]};});
+/* Pre-parsing date una sola volta sull'intero dataset (evita N chiamate a parseD per render) */
+const ALL   = RAW.leads.map(l => Object.assign({}, l, { _date: parseD(l.date) }));
+const PAGES = [...new Set(ALL.map(l => l.page).filter(Boolean))];
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   STATO FILTRO
+   ═══════════════════════════════════════════════════════════════════════════ */
+let pageFilter = '__all__';
+function activeRows() {
+  return pageFilter === '__all__' ? ALL : ALL.filter(l => l.page === pageFilter);
 }
 
-function buildSeries(R,count,mode){
-  const today=new Date();today.setHours(0,0,0,0);
-  const map={};
-  if(mode==="day"){
-    const out=[];
-    for(let i=count-1;i>=0;i--){const d=new Date(today);d.setDate(today.getDate()-i);out.push({key:dkey(d),label:String(d.getDate()),val:0,d});}
-    const idx={};out.forEach((o,i)=>idx[o.key]=i);
-    R.forEach(l=>{if(l.date&&idx[l.date]!=null)out[idx[l.date]].val++;});
-    return out;
-  }else{
-    const w0=weekStart(today);const out=[];
-    for(let i=count-1;i>=0;i--){const d=new Date(w0);d.setDate(w0.getDate()-i*7);
-      out.push({key:dkey(d),label:String(d.getDate())+"/"+(d.getMonth()+1),val:0});}
-    const idx={};out.forEach((o,i)=>idx[o.key]=i);
-    R.forEach(l=>{const d=parseD(l.date);if(!d)return;const k=dkey(weekStart(d));if(idx[k]!=null)out[idx[k]].val++;});
-    return out;
+/* ═══════════════════════════════════════════════════════════════════════════
+   COLORI E LABEL CAMPAGNA (guidati da CONFIG.campaignColors)
+   ═══════════════════════════════════════════════════════════════════════════ */
+function campColor(c) {
+  const lc = (c || '').toLowerCase();
+  for (const [key, color] of Object.entries(CONFIG.campaignColors)) {
+    if (key !== 'default' && lc.includes(key)) return color;
   }
+  return CONFIG.campaignColors.default;
+}
+function shortCamp(c) {
+  return (c || '').replace(/lead\s+giornalieri\s+/i, '').trim() || '—';
 }
 
-function renderColumns(id,series,weekly){
-  const max=Math.max(1,...series.map(s=>s.val));
-  const el=document.getElementById(id);
-  const bars=series.map((s,i)=>{
-    const h=Math.round(s.val/max*100);
-    const isToday=!weekly&&i===series.length-1;
-    const cnt=s.val||(isToday?'0':'');
-    return `<div class="col ${weekly?'weekly':''}${isToday?' today':''}" title="${s.label}: ${s.val}">
-        <div class="cnt">${cnt}</div>
-        <div class="bar" style="height:${Math.max(s.val?6:(isToday?3:0),h)}%"></div>
-      </div>`;
-  }).join("");
-  const axis=series.map((s,i)=>{
-    const isToday=!weekly&&i===series.length-1;
-    const show=weekly?true:(i%5===0||i===series.length-1);
-    const lbl=show?(isToday?'Oggi':s.label):'';
-    const style=isToday?'color:var(--arezzo);font-weight:700':'';
-    return `<span style="${style}">${lbl}</span>`;
-  }).join("");
-  el.innerHTML=`<div class="cols">${bars}</div><div class="axis">${axis}</div>`;
+/* ═══════════════════════════════════════════════════════════════════════════
+   AGGREGAZIONE — singolo passaggio su R per tutte le view
+   ═══════════════════════════════════════════════════════════════════════════ */
+function buildDailySlots(today) {
+  const slots = [];
+  for (let i = CONFIG.dailyDays - 1; i >= 0; i--) {
+    const d = new Date(today); d.setDate(today.getDate() - i);
+    slots.push({ key: dkey(d), label: String(d.getDate()), val: 0 });
+  }
+  return slots;
+}
+function buildWeeklySlots(today) {
+  const w0 = weekStart(today);
+  const slots = [];
+  for (let i = CONFIG.weeklyWeeks - 1; i >= 0; i--) {
+    const d = new Date(w0); d.setDate(w0.getDate() - i * 7);
+    slots.push({ key: dkey(d), label: d.getDate() + '/' + (d.getMonth() + 1), val: 0 });
+  }
+  return slots;
 }
 
-function group(R,field){
-  const m={};R.forEach(l=>{const k=l[field]||"";m[k]=(m[k]||0)+1;});
-  return Object.entries(m).map(([k,v])=>({k,v})).sort((a,b)=>b.v-a.v);
-}
-function hbars(id,arr,colorFn,labFn){
-  const el=document.getElementById(id);
-  if(!arr.length){el.innerHTML='<div class="empty">Nessun dato.</div>';return;}
-  const max=Math.max(...arr.map(a=>a.v));
-  el.innerHTML=arr.map(a=>`<div class="hrow">
-      <div class="lab" title="${labFn(a.k)}">${labFn(a.k)}</div>
-      <div class="track"><div class="fill" style="width:${Math.round(a.v/max*100)}%;background:${colorFn(a.k)}"></div></div>
-      <div class="val num">${fmt(a.v)}</div></div>`).join("");
-}
-function gauge(label,pct,part,tot,color){
-  return `<div class="gauge"><div class="gl"><span>${label}</span><b>${pct}% <span style="color:var(--muted);font-weight:400">(${fmt(part)}/${fmt(tot)})</span></b></div>
-    <div class="track"><div class="fill" style="width:${pct}%;background:${color}"></div></div></div>`;
+function aggregate(R) {
+  const today  = new Date(); today.setHours(0, 0, 0, 0);
+  const todayK = dkey(today);
+  const last7  = new Date(today); last7.setDate(today.getDate() - 6);
+  const d30    = new Date(today); d30.setDate(today.getDate() - 29);
+
+  /* pre-costruisce i bucket temporali e li indicizza per O(1) lookup */
+  const dailySeries  = buildDailySlots(today);
+  const weeklySeries = buildWeeklySlots(today);
+  const dailyIdx = {}, weeklyIdx = {};
+  dailySeries.forEach((s, i)  => { dailyIdx[s.key]  = i; });
+  weeklySeries.forEach((s, i) => { weeklyIdx[s.key] = i; });
+
+  let cntToday = 0, cnt7 = 0, in30 = 0, noDate = 0;
+  const days30Set  = new Set();
+  const byCampaign = {}, byPage = {}, byLocality = {}, alltimeMap = {};
+  let withPhone = 0, withEmail = 0;
+
+  R.forEach(function(l) {
+    const d  = l._date;        // già parsato all'avvio
+    const dk = l.date || '';
+
+    /* KPI rapidi */
+    if (dk === todayK) cntToday++;
+    if (!d) { noDate++; }
+    if (d) {
+      if (d >= last7 && d <= today) cnt7++;
+      if (d >= d30   && d <= today) { in30++; days30Set.add(dk); }
+
+      /* slot giornaliero */
+      if (dailyIdx[dk] != null) dailySeries[dailyIdx[dk]].val++;
+
+      /* slot settimanale */
+      const wk = dkey(weekStart(d));
+      if (weeklyIdx[wk] != null) weeklySeries[weeklyIdx[wk]].val++;
+
+      /* storico completo (aggregato per settimana) */
+      alltimeMap[wk] = (alltimeMap[wk] || 0) + 1;
+    }
+
+    /* breakdown per gruppo */
+    if (l.campaign) byCampaign[l.campaign] = (byCampaign[l.campaign] || 0) + 1;
+    if (l.page)     byPage[l.page]         = (byPage[l.page]         || 0) + 1;
+    if (l.locality) byLocality[l.locality] = (byLocality[l.locality] || 0) + 1;
+
+    /* qualità */
+    if (l.has_phone) withPhone++;
+    if (l.has_email) withEmail++;
+  });
+
+  /* trasforma la mappa storico in serie ordinata */
+  const alltimeSeries = Object.keys(alltimeMap).sort().map(function(k) {
+    const d = parseD(k);
+    return { key: k, label: d.getDate() + '/' + (d.getMonth() + 1), val: alltimeMap[k] };
+  });
+
+  /* ordina i breakdown */
+  function sortedEntries(map) {
+    return Object.entries(map).map(([k, v]) => ({ k, v })).sort((a, b) => b.v - a.v);
+  }
+
+  return {
+    total: R.length, noDate, cntToday, cnt7,
+    avg: in30 / (days30Set.size || 1),
+    dailySeries, weeklySeries, alltimeSeries,
+    byCampaign: sortedEntries(byCampaign),
+    byPage:     sortedEntries(byPage),
+    byLocality: sortedEntries(byLocality).slice(0, CONFIG.topLocalities),
+    withPhone, withEmail,
+  };
 }
 
-/* ---------- filtri pagina ---------- */
-function buildFilters(){
-  const f=document.getElementById("filters");
-  const opts=[["__all__","Tutte le pagine"],...PAGES.map(p=>[p,p])];
-  f.innerHTML=opts.map(([v,l])=>`<button data-v="${v}" aria-pressed="${v===pageFilter}">${l}</button>`).join("");
-  f.querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{
-    pageFilter=b.dataset.v;
-    f.querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x.dataset.v===pageFilter));
-    render();
-  }));
+/* ═══════════════════════════════════════════════════════════════════════════
+   RENDER
+   ═══════════════════════════════════════════════════════════════════════════ */
+const fmt = n => n.toLocaleString('it-IT');
+
+function render() {
+  const v = aggregate(activeRows());
+
+  /* KPI */
+  document.getElementById('kpis').innerHTML = [
+    ['Oggi',             fmt(v.cntToday),    'lead importati oggi',                    'accent'],
+    ['Ultimi 7 giorni',  fmt(v.cnt7),        'settimana corrente',                     ''],
+    ['Media giornaliera', v.avg.toFixed(1),  'sugli ultimi ' + CONFIG.dailyDays + ' giorni', ''],
+    ['Totale storico',   fmt(v.total),
+      v.noDate ? 'di cui ' + fmt(v.noDate) + ' storici' : 'da quando registri i dati', ''],
+  ].map(function([e, val, sub, a]) {
+    return '<div class="kpi ' + a + '"><div class="eyebrow">' + e + '</div>'
+      + '<div class="v num">' + val + '</div><div class="sub">' + sub + '</div></div>';
+  }).join('');
+
+  /* grafici temporali */
+  renderCols('daily',   v.dailySeries,   false);
+  if (CONFIG.showWeekly)  renderCols('weekly',  v.weeklySeries,  true);
+  if (CONFIG.showAllTime) renderCols('alltime', v.alltimeSeries, true);
+
+  /* breakdown */
+  hbars('byCampaign', v.byCampaign.filter(a => a.k), campColor, shortCamp);
+  if (CONFIG.showByPage)   hbars('byPage',     v.byPage.filter(a => a.k),     function() { return 'var(--ink)'; },   function(x) { return x; });
+  if (CONFIG.showLocality) hbars('byLocality', v.byLocality.filter(a => a.k), function() { return 'var(--other)'; }, function(x) { return x; });
+
+  /* qualità contatti */
+  if (CONFIG.showQualityGauge) {
+    const pPhone = v.total ? Math.round(v.withPhone / v.total * 100) : 0;
+    const pEmail = v.total ? Math.round(v.withEmail / v.total * 100) : 0;
+    document.getElementById('quality').innerHTML =
+      gauge('Con telefono', pPhone, v.withPhone, v.total, 'var(--arezzo)') +
+      gauge('Con email',    pEmail, v.withEmail, v.total, 'var(--firenze)');
+  }
+
+  document.getElementById('foot').textContent =
+    fmt(v.total) + ' lead nel periodo · ' + PAGES.length + ' pagine · fonte: Meta Lead Ads';
 }
 
-/* ---------- init ---------- */
-document.getElementById("updated").innerHTML =
-  IS_DEMO ? "Anteprima con dati di esempio" :
-  `Aggiornato il <b>${(window.DASHBOARD&&window.DASHBOARD.generated_at)||""}</b>`;
-if(IS_DEMO) document.getElementById("demoBanner").style.display="block";
-buildFilters();
-render();
+function renderCols(id, series, weekly) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (!series.length) { el.innerHTML = '<div class="empty">Nessun dato.</div>'; return; }
+  const max     = Math.max(1, ...series.map(s => s.val));
+  const lastIdx = series.length - 1;
+  const bars = series.map(function(s, i) {
+    const isToday = !weekly && i === lastIdx;
+    const h       = Math.round(s.val / max * 100);
+    const cnt     = s.val || (isToday ? '0' : '');
+    return '<div class="col' + (weekly ? ' weekly' : '') + (isToday ? ' today' : '')
+      + '" title="' + s.label + ': ' + s.val + '">'
+      + '<div class="cnt">' + cnt + '</div>'
+      + '<div class="bar" style="height:' + Math.max(s.val ? 6 : (isToday ? 3 : 0), h) + '%"></div>'
+      + '</div>';
+  }).join('');
+  const axis = series.map(function(s, i) {
+    const isToday = !weekly && i === lastIdx;
+    const show    = weekly || i % 5 === 0 || i === lastIdx;
+    const lbl     = show ? (isToday ? 'Oggi' : s.label) : '';
+    return '<span style="' + (isToday ? 'color:var(--arezzo);font-weight:700' : '') + '">' + lbl + '</span>';
+  }).join('');
+  el.innerHTML = '<div class="cols">' + bars + '</div><div class="axis">' + axis + '</div>';
+}
+
+function hbars(id, arr, colorFn, labFn) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (!arr.length) { el.innerHTML = '<div class="empty">Nessun dato.</div>'; return; }
+  const max = Math.max(1, ...arr.map(a => a.v));
+  el.innerHTML = arr.map(function(a) {
+    const lab = labFn(a.k);
+    return '<div class="hrow">'
+      + '<div class="lab" title="' + lab + '">' + lab + '</div>'
+      + '<div class="track"><div class="fill" style="width:' + Math.round(a.v / max * 100) + '%;background:' + colorFn(a.k) + '"></div></div>'
+      + '<div class="val num">' + fmt(a.v) + '</div>'
+      + '</div>';
+  }).join('');
+}
+
+function gauge(label, pct, part, tot, color) {
+  return '<div class="gauge"><div class="gl"><span>' + label + '</span>'
+    + '<b>' + pct + '% <span style="color:var(--muted);font-weight:400">(' + fmt(part) + '/' + fmt(tot) + ')</span></b></div>'
+    + '<div class="track"><div class="fill" style="width:' + pct + '%;background:' + color + '"></div></div></div>';
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LAYOUT DINAMICO — i pannelli opzionali vengono costruiti o omessi
+   in base ai toggle di CONFIG; cambia CONFIG, non toccare qui
+   ═══════════════════════════════════════════════════════════════════════════ */
+function buildLayout() {
+  let html = '';
+
+  /* andamento giornaliero (sempre presente) */
+  html += '<div class="panel">'
+    + '<h2>Andamento giornaliero</h2>'
+    + '<div class="cap">Lead al giorno · ultimi ' + CONFIG.dailyDays + ' giorni</div>'
+    + '<div id="daily"></div></div>';
+
+  /* andamento settimanale */
+  if (CONFIG.showWeekly) {
+    html += '<div class="panel">'
+      + '<h2>Andamento settimanale</h2>'
+      + '<div class="cap">Lead per settimana (lun–dom) · ultime ' + CONFIG.weeklyWeeks + ' settimane</div>'
+      + '<div id="weekly"></div></div>';
+  }
+
+  /* storico completo */
+  if (CONFIG.showAllTime) {
+    html += '<div class="panel">'
+      + '<h2>Storico completo</h2>'
+      + '<div class="cap">Tutti i lead · per settimana · tutta la storia disponibile</div>'
+      + '<div id="alltime"></div></div>';
+  }
+
+  /* campagna / pagina (affiancati se entrambi attivi) */
+  const bothCampPage = CONFIG.showByPage;
+  html += '<div class="' + (bothCampPage ? 'grid2' : '') + '">'
+    + '<div class="panel"><h2>Per zona (campagna)</h2>'
+    + '<div class="cap">Come sono stati instradati su EasyCall</div>'
+    + '<div class="hbars" id="byCampaign"></div></div>';
+  if (bothCampPage) {
+    html += '<div class="panel"><h2>Per pagina</h2>'
+      + '<div class="cap">Da quale brand arrivano i lead</div>'
+      + '<div class="hbars" id="byPage"></div></div>';
+  }
+  html += '</div>';
+
+  /* località / qualità (affiancati se entrambi attivi) */
+  const showLoc = CONFIG.showLocality;
+  const showQ   = CONFIG.showQualityGauge;
+  if (showLoc || showQ) {
+    html += '<div class="' + (showLoc && showQ ? 'grid2' : '') + '">';
+    if (showLoc) {
+      html += '<div class="panel"><h2>Località principali</h2>'
+        + '<div class="cap">Top ' + CONFIG.topLocalities + ' per numero di lead</div>'
+        + '<div class="hbars" id="byLocality"></div></div>';
+    }
+    if (showQ) {
+      html += '<div class="panel"><h2>Qualità dei contatti</h2>'
+        + '<div class="cap">Quota di lead con recapito utilizzabile dal dialer</div>'
+        + '<div id="quality"></div></div>';
+    }
+    html += '</div>';
+  }
+
+  document.getElementById('main-panels').innerHTML = html;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FILTRI PAGINA
+   ═══════════════════════════════════════════════════════════════════════════ */
+function buildFilters() {
+  const f    = document.getElementById('filters');
+  const opts = [['__all__', 'Tutte le pagine'], ...PAGES.map(p => [p, p])];
+  f.innerHTML = opts.map(function([v, l]) {
+    return '<button data-v="' + v + '" aria-pressed="' + (v === pageFilter) + '">' + l + '</button>';
+  }).join('');
+  f.querySelectorAll('button').forEach(function(b) {
+    b.addEventListener('click', function() {
+      pageFilter = b.dataset.v;
+      f.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x.dataset.v === pageFilter));
+      render();
+    });
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   INIT
+   ═══════════════════════════════════════════════════════════════════════════ */
+document.getElementById('updated').innerHTML = IS_DEMO
+  ? 'Anteprima con dati di esempio'
+  : 'Aggiornato il <b>' + ((window.DASHBOARD && window.DASHBOARD.generated_at) || '') + '</b>';
+if (IS_DEMO) document.getElementById('demoBanner').style.display = 'block';
+
+buildLayout();   // 1. inietta il DOM dei pannelli in base a CONFIG
+buildFilters();  // 2. costruisce i bottoni filtro
+render();        // 3. popola tutti i dati
 </script>
 </body>
 </html>
