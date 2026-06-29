@@ -33,13 +33,41 @@
   .demo-banner{background:#FBEFE4;border:1px solid #E9C9A9;color:#8a4b1d;
     padding:10px 14px;border-radius:10px;font-size:13px;margin-bottom:22px}
 
-  .filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px}
-  .filters button{font:inherit;font-size:13px;font-weight:600;color:var(--muted);
-    background:var(--panel);border:1px solid var(--line);padding:7px 14px;border-radius:999px;cursor:pointer;
+  /* Selezione rapida pagine */
+  .quick-sel{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
+  .quick-sel .qs-lbl{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted2);font-weight:700}
+  .quick-sel button{font:inherit;font-size:13px;font-weight:600;color:var(--muted);
+    background:var(--panel);border:1px solid var(--line);padding:6px 14px;border-radius:999px;cursor:pointer;
     transition:background .15s,color .15s,border-color .15s}
-  .filters button:hover{border-color:var(--muted2)}
-  .filters button[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
-  .filters button:focus-visible{outline:2px solid var(--firenze);outline-offset:2px}
+  .quick-sel button:hover{border-color:var(--muted2)}
+  .quick-sel button.qs-on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  /* Pannello filtri dati avanzati */
+  .filter-panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:14px 18px;margin-bottom:12px;box-shadow:var(--shadow);
+    display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start}
+  .filter-group{display:flex;flex-direction:column;gap:8px}
+  .filter-label{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted2);font-weight:700}
+  .filter-dates{display:flex;gap:8px;align-items:center}
+  .filter-dates input[type="date"]{font:inherit;font-size:13px;border:1px solid var(--line);
+    border-radius:8px;padding:6px 10px;background:var(--paper);color:var(--ink);cursor:pointer}
+  .filter-dates input[type="date"]:focus{outline:2px solid var(--firenze);outline-offset:2px}
+  .filter-dates .sep{color:var(--muted2);font-size:13px;user-select:none}
+  .filter-sep{width:1px;background:var(--line);align-self:stretch;flex-shrink:0}
+  .filter-pages{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;padding-top:2px}
+  .filter-pages label{display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;user-select:none}
+  .filter-pages label.all-label{font-weight:700;color:var(--ink)}
+  .filter-pages input[type="checkbox"]{accent-color:var(--ink);width:15px;height:15px;cursor:pointer;flex-shrink:0}
+  /* Barra filtri visualizzazione */
+  .vis-bar{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:11px 18px;margin-bottom:22px;box-shadow:var(--shadow);
+    display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .vis-bar .vis-lbl{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted2);font-weight:700;margin-right:6px}
+  .vis-btn{font:inherit;font-size:12px;font-weight:600;color:var(--muted);
+    background:transparent;border:1px solid var(--line);padding:4px 11px;border-radius:8px;cursor:pointer;
+    transition:background .15s,color .15s,border-color .15s}
+  .vis-btn:hover{border-color:var(--muted2)}
+  .vis-btn.vis-on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  @media(max-width:600px){.filter-sep{display:none}.filter-panel{gap:14px}}
 
   .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:26px}
   .kpi{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow)}
@@ -52,6 +80,9 @@
   .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px 20px;box-shadow:var(--shadow);margin-bottom:18px}
   .panel h2{margin:0;font-size:14px;font-weight:700;letter-spacing:-.01em}
   .panel .cap{color:var(--muted);font-size:12px;margin:3px 0 16px}
+
+  /* Gestione visibilità dinamica tramite CSS per evitare crash di referenze DOM */
+  .panel.hidden { display: none !important; }
 
   .cols{display:flex;align-items:flex-end;gap:3px;height:170px;border-bottom:1px solid var(--line);padding-top:6px}
   .col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;min-width:0}
@@ -105,15 +136,63 @@
     <b>dashboard_data.js</b> in questa cartella e il pannello mostrerà i tuoi lead reali.
   </div>
 
-  <div class="filters" id="filters"></div>
-  <div class="kpis"    id="kpis"></div>
-  <div                 id="main-panels"></div>
-  <footer              id="foot"></footer>
+  <div id="quick-sel" class="quick-sel"></div>
+  <div id="filters"></div>
+  <div id="vis-bar"   class="vis-bar"></div>
+  <div class="kpis"   id="kpis"></div>
+  
+  <div id="main-panels">
+    <div class="panel" id="panel-daily">
+      <h2>Andamento giornaliero</h2>
+      <div class="cap" id="cap-daily"></div>
+      <div id="daily"></div>
+    </div>
+
+    <div class="panel" id="panel-weekly">
+      <h2>Andamento settimanale</h2>
+      <div class="cap" id="cap-weekly"></div>
+      <div id="weekly"></div>
+    </div>
+
+    <div class="panel" id="panel-alltime">
+      <h2>Storico completo</h2>
+      <div class="cap">Tutti i lead · per settimana · tutta la storia disponibile</div>
+      <div id="alltime"></div>
+    </div>
+
+    <div class="grid2" id="grid-campaign-page">
+      <div class="panel" id="panel-campaign">
+        <h2>Per zona (campagna)</h2>
+        <div class="cap">Come sono stati instradati su EasyCall</div>
+        <div class="hbars" id="byCampaign"></div>
+      </div>
+      <div class="panel" id="panel-page">
+        <h2>Per pagina</h2>
+        <div class="cap">Da quale brand arrivano i lead</div>
+        <div class="hbars" id="byPage"></div>
+      </div>
+    </div>
+
+    <div class="grid2" id="grid-loc-quality">
+      <div class="panel" id="panel-locality">
+        <h2>Località principali</h2>
+        <div class="cap" id="cap-locality"></div>
+        <div class="hbars" id="byLocality"></div>
+      </div>
+      <div class="panel" id="panel-quality">
+        <h2>Qualità dei contatti</h2>
+        <div class="cap">Quota di lead con recapito utilizzabile dal dialer</div>
+        <div id="quality"></div>
+      </div>
+    </div>
+  </div>
+
+  <footer id="foot"></footer>
 
 </div>
 <script>
 /* ═══════════════════════════════════════════════════════════════════════════
-   CONFIG — modifica solo questo blocco; non toccare il resto del file
+   CONFIG — Configurazione centralizzata dei parametri di visualizzazione
    ═══════════════════════════════════════════════════════════════════════════ */
 const CONFIG = {
   /* finestre temporali */
@@ -121,7 +200,7 @@ const CONFIG = {
   weeklyWeeks:   10,   // settimane nell'andamento settimanale
   topLocalities:  8,   // max righe nel breakdown per località
 
-  /* toggle pannelli (true = visibile, false = non renderizzato) */
+  /* toggle pannelli (true = visibile, false = nascosto via CSS senza rompere il DOM) */
   showWeekly:       true,
   showAllTime:      true,
   showByPage:       true,
@@ -175,7 +254,7 @@ const RAW   = (window.DASHBOARD && window.DASHBOARD.leads && window.DASHBOARD.le
 const IS_DEMO = !(window.DASHBOARD && window.DASHBOARD.leads && window.DASHBOARD.leads.length);
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   HELPER DATE (pure functions, nessuno stato)
+   HELPER DATE
    ═══════════════════════════════════════════════════════════════════════════ */
 function dkey(dt) {
   return dt.getFullYear() + '-'
@@ -194,20 +273,34 @@ function weekStart(dt) {
   return x;
 }
 
-/* Pre-parsing date una sola volta sull'intero dataset (evita N chiamate a parseD per render) */
+/* Pre-parsing date all'inizializzazione una tantum */
 const ALL   = RAW.leads.map(l => Object.assign({}, l, { _date: parseD(l.date) }));
 const PAGES = [...new Set(ALL.map(l => l.page).filter(Boolean))];
 
 /* ═══════════════════════════════════════════════════════════════════════════
    STATO FILTRO
    ═══════════════════════════════════════════════════════════════════════════ */
-let pageFilter = '__all__';
+const _today0   = new Date(); _today0.setHours(0, 0, 0, 0);
+const _allDates = ALL.map(l => l._date).filter(Boolean);
+const _minDate  = _allDates.length ? new Date(Math.min.apply(null, _allDates)) : _today0;
+
+let filterFrom    = dkey(_minDate);
+let filterTo      = dkey(_today0);
+let selectedPages = new Set(PAGES);
+
 function activeRows() {
-  return pageFilter === '__all__' ? ALL : ALL.filter(l => l.page === pageFilter);
+  return ALL.filter(function(l) {
+    if (l._date) {
+      if (filterFrom && l.date < filterFrom) return false;
+      if (filterTo   && l.date > filterTo)   return false;
+    }
+    if (!selectedPages.has(l.page)) return false;
+    return true;
+  });
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   COLORI E LABEL CAMPAGNA (guidati da CONFIG.campaignColors)
+   COLORI E LABEL CAMPAGNA
    ═══════════════════════════════════════════════════════════════════════════ */
 function campColor(c) {
   const lc = (c || '').toLowerCase();
@@ -221,7 +314,7 @@ function shortCamp(c) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   AGGREGAZIONE — singolo passaggio su R per tutte le view
+   AGGREGAZIONE — Ottimizzata O(N) in un unico passaggio
    ═══════════════════════════════════════════════════════════════════════════ */
 function buildDailySlots(today) {
   const slots = [];
@@ -247,7 +340,6 @@ function aggregate(R) {
   const last7  = new Date(today); last7.setDate(today.getDate() - 6);
   const d30    = new Date(today); d30.setDate(today.getDate() - 29);
 
-  /* pre-costruisce i bucket temporali e li indicizza per O(1) lookup */
   const dailySeries  = buildDailySlots(today);
   const weeklySeries = buildWeeklySlots(today);
   const dailyIdx = {}, weeklyIdx = {};
@@ -260,44 +352,34 @@ function aggregate(R) {
   let withPhone = 0, withEmail = 0;
 
   R.forEach(function(l) {
-    const d  = l._date;        // già parsato all'avvio
+    const d  = l._date;
     const dk = l.date || '';
 
-    /* KPI rapidi */
     if (dk === todayK) cntToday++;
     if (!d) { noDate++; }
     if (d) {
       if (d >= last7 && d <= today) cnt7++;
       if (d >= d30   && d <= today) { in30++; days30Set.add(dk); }
-
-      /* slot giornaliero */
       if (dailyIdx[dk] != null) dailySeries[dailyIdx[dk]].val++;
 
-      /* slot settimanale */
       const wk = dkey(weekStart(d));
       if (weeklyIdx[wk] != null) weeklySeries[weeklyIdx[wk]].val++;
-
-      /* storico completo (aggregato per settimana) */
       alltimeMap[wk] = (alltimeMap[wk] || 0) + 1;
     }
 
-    /* breakdown per gruppo */
     if (l.campaign) byCampaign[l.campaign] = (byCampaign[l.campaign] || 0) + 1;
     if (l.page)     byPage[l.page]         = (byPage[l.page]         || 0) + 1;
     if (l.locality) byLocality[l.locality] = (byLocality[l.locality] || 0) + 1;
 
-    /* qualità */
     if (l.has_phone) withPhone++;
     if (l.has_email) withEmail++;
   });
 
-  /* trasforma la mappa storico in serie ordinata */
   const alltimeSeries = Object.keys(alltimeMap).sort().map(function(k) {
     const d = parseD(k);
     return { key: k, label: d.getDate() + '/' + (d.getMonth() + 1), val: alltimeMap[k] };
   });
 
-  /* ordina i breakdown */
   function sortedEntries(map) {
     return Object.entries(map).map(([k, v]) => ({ k, v })).sort((a, b) => b.v - a.v);
   }
@@ -314,36 +396,40 @@ function aggregate(R) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   RENDER
+   RENDERING ENGINE
    ═══════════════════════════════════════════════════════════════════════════ */
 const fmt = n => n.toLocaleString('it-IT');
 
 function render() {
   const v = aggregate(activeRows());
 
+  /* Aggiorna testi dinamici delle intestazioni in base al CONFIG */
+  document.getElementById('cap-daily').textContent = 'Lead al giorno · ultimi ' + CONFIG.dailyDays + ' giorni';
+  if (CONFIG.showWeekly) document.getElementById('cap-weekly').textContent = 'Lead per settimana (lun–dom) · ultime ' + CONFIG.weeklyWeeks + ' settimane';
+  if (CONFIG.showLocality) document.getElementById('cap-locality').textContent = 'Top ' + CONFIG.topLocalities + ' per numero di lead';
+
   /* KPI */
   document.getElementById('kpis').innerHTML = [
     ['Oggi',             fmt(v.cntToday),    'lead importati oggi',                    'accent'],
     ['Ultimi 7 giorni',  fmt(v.cnt7),        'settimana corrente',                     ''],
     ['Media giornaliera', v.avg.toFixed(1),  'sugli ultimi ' + CONFIG.dailyDays + ' giorni', ''],
-    ['Totale storico',   fmt(v.total),
-      v.noDate ? 'di cui ' + fmt(v.noDate) + ' storici' : 'da quando registri i dati', ''],
+    ['Totale storico',   fmt(v.total),       v.noDate ? 'di cui ' + fmt(v.noDate) + ' storici' : 'da quando registri i dati', ''],
   ].map(function([e, val, sub, a]) {
     return '<div class="kpi ' + a + '"><div class="eyebrow">' + e + '</div>'
       + '<div class="v num">' + val + '</div><div class="sub">' + sub + '</div></div>';
   }).join('');
 
-  /* grafici temporali */
+  /* Grafici Temporali con fallbacks per dataset vuoti */
   renderCols('daily',   v.dailySeries,   false);
   if (CONFIG.showWeekly)  renderCols('weekly',  v.weeklySeries,  true);
   if (CONFIG.showAllTime) renderCols('alltime', v.alltimeSeries, true);
 
-  /* breakdown */
+  /* Liste di breakdown */
   hbars('byCampaign', v.byCampaign.filter(a => a.k), campColor, shortCamp);
   if (CONFIG.showByPage)   hbars('byPage',     v.byPage.filter(a => a.k),     function() { return 'var(--ink)'; },   function(x) { return x; });
   if (CONFIG.showLocality) hbars('byLocality', v.byLocality.filter(a => a.k), function() { return 'var(--other)'; }, function(x) { return x; });
 
-  /* qualità contatti */
+  /* Indicatori Qualità */
   if (CONFIG.showQualityGauge) {
     const pPhone = v.total ? Math.round(v.withPhone / v.total * 100) : 0;
     const pEmail = v.total ? Math.round(v.withEmail / v.total * 100) : 0;
@@ -360,8 +446,11 @@ function renderCols(id, series, weekly) {
   const el = document.getElementById(id);
   if (!el) return;
   if (!series.length) { el.innerHTML = '<div class="empty">Nessun dato.</div>'; return; }
+  
+  /* FIX: Math.max con fallback 1 previene l'errore -Infinity se il dataset è vuoto */
   const max     = Math.max(1, ...series.map(s => s.val));
   const lastIdx = series.length - 1;
+  
   const bars = series.map(function(s, i) {
     const isToday = !weekly && i === lastIdx;
     const h       = Math.round(s.val / max * 100);
@@ -372,12 +461,14 @@ function renderCols(id, series, weekly) {
       + '<div class="bar" style="height:' + Math.max(s.val ? 6 : (isToday ? 3 : 0), h) + '%"></div>'
       + '</div>';
   }).join('');
+  
   const axis = series.map(function(s, i) {
     const isToday = !weekly && i === lastIdx;
     const show    = weekly || i % 5 === 0 || i === lastIdx;
     const lbl     = show ? (isToday ? 'Oggi' : s.label) : '';
     return '<span style="' + (isToday ? 'color:var(--arezzo);font-weight:700' : '') + '">' + lbl + '</span>';
   }).join('');
+  
   el.innerHTML = '<div class="cols">' + bars + '</div><div class="axis">' + axis + '</div>';
 }
 
@@ -403,82 +494,163 @@ function gauge(label, pct, part, tot, color) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   LAYOUT DINAMICO — i pannelli opzionali vengono costruiti o omessi
-   in base ai toggle di CONFIG; cambia CONFIG, non toccare qui
+   APPLICAZIONE VISIBILITÀ DA CONFIG (Previene anomalie e asimmetrie DOM)
    ═══════════════════════════════════════════════════════════════════════════ */
-function buildLayout() {
-  let html = '';
-
-  /* andamento giornaliero (sempre presente) */
-  html += '<div class="panel">'
-    + '<h2>Andamento giornaliero</h2>'
-    + '<div class="cap">Lead al giorno · ultimi ' + CONFIG.dailyDays + ' giorni</div>'
-    + '<div id="daily"></div></div>';
-
-  /* andamento settimanale */
-  if (CONFIG.showWeekly) {
-    html += '<div class="panel">'
-      + '<h2>Andamento settimanale</h2>'
-      + '<div class="cap">Lead per settimana (lun–dom) · ultime ' + CONFIG.weeklyWeeks + ' settimane</div>'
-      + '<div id="weekly"></div></div>';
+function setupVisibility() {
+  /* Toggle dei pannelli di storico e andamento temporale */
+  if (!CONFIG.showWeekly) document.getElementById('panel-weekly').classList.add('hidden');
+  if (!CONFIG.showAllTime) document.getElementById('panel-alltime').classList.add('hidden');
+  
+  /* Gestione griglia Campagna / Pagina */
+  if (!CONFIG.showByPage) {
+    document.getElementById('panel-page').classList.add('hidden');
+    document.getElementById('grid-campaign-page').classList.remove('grid2');
   }
-
-  /* storico completo */
-  if (CONFIG.showAllTime) {
-    html += '<div class="panel">'
-      + '<h2>Storico completo</h2>'
-      + '<div class="cap">Tutti i lead · per settimana · tutta la storia disponibile</div>'
-      + '<div id="alltime"></div></div>';
-  }
-
-  /* campagna / pagina (affiancati se entrambi attivi) */
-  const bothCampPage = CONFIG.showByPage;
-  html += '<div class="' + (bothCampPage ? 'grid2' : '') + '">'
-    + '<div class="panel"><h2>Per zona (campagna)</h2>'
-    + '<div class="cap">Come sono stati instradati su EasyCall</div>'
-    + '<div class="hbars" id="byCampaign"></div></div>';
-  if (bothCampPage) {
-    html += '<div class="panel"><h2>Per pagina</h2>'
-      + '<div class="cap">Da quale brand arrivano i lead</div>'
-      + '<div class="hbars" id="byPage"></div></div>';
-  }
-  html += '</div>';
-
-  /* località / qualità (affiancati se entrambi attivi) */
-  const showLoc = CONFIG.showLocality;
-  const showQ   = CONFIG.showQualityGauge;
-  if (showLoc || showQ) {
-    html += '<div class="' + (showLoc && showQ ? 'grid2' : '') + '">';
-    if (showLoc) {
-      html += '<div class="panel"><h2>Località principali</h2>'
-        + '<div class="cap">Top ' + CONFIG.topLocalities + ' per numero di lead</div>'
-        + '<div class="hbars" id="byLocality"></div></div>';
+  
+  /* Gestione griglia Località / Qualità */
+  if (!CONFIG.showLocality) document.getElementById('panel-locality').classList.add('hidden');
+  if (!CONFIG.showQualityGauge) document.getElementById('panel-quality').classList.add('hidden');
+  
+  if (!CONFIG.showLocality || !CONFIG.showQualityGauge) {
+    document.getElementById('grid-loc-quality').classList.remove('grid2');
+    if (!CONFIG.showLocality && !CONFIG.showQualityGauge) {
+      document.getElementById('grid-loc-quality').classList.add('hidden');
     }
-    if (showQ) {
-      html += '<div class="panel"><h2>Qualità dei contatti</h2>'
-        + '<div class="cap">Quota di lead con recapito utilizzabile dal dialer</div>'
-        + '<div id="quality"></div></div>';
-    }
-    html += '</div>';
   }
-
-  document.getElementById('main-panels').innerHTML = html;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   FILTRI PAGINA
+   SELEZIONE RAPIDA PAGINE
+   ═══════════════════════════════════════════════════════════════════════════ */
+function buildQuickSel() {
+  const el = document.getElementById('quick-sel');
+  if (!el) return;
+  el.innerHTML = '<span class="qs-lbl">Vista rapida:</span>'
+    + [['__all__', 'Tutte'], ...PAGES.map(p => [p, p])].map(function(pair) {
+        return '<button data-v="' + pair[0].replace(/"/g, '&quot;') + '">' + pair[1] + '</button>';
+      }).join('');
+  el.querySelectorAll('button').forEach(function(b) {
+    b.addEventListener('click', function() {
+      const v = this.dataset.v;
+      selectedPages = v === '__all__' ? new Set(PAGES) : new Set([v]);
+      document.querySelectorAll('.chk-page').forEach(function(c) {
+        c.checked = selectedPages.has(c.value);
+      });
+      const allChk = document.getElementById('chk-all');
+      if (allChk) {
+        allChk.indeterminate = selectedPages.size > 0 && selectedPages.size < PAGES.length;
+        allChk.checked = selectedPages.size === PAGES.length;
+      }
+      syncQuickSel();
+      render();
+    });
+  });
+  syncQuickSel();
+}
+
+function syncQuickSel() {
+  const el = document.getElementById('quick-sel');
+  if (!el) return;
+  let active = selectedPages.size === PAGES.length ? '__all__'
+             : selectedPages.size === 1 ? [...selectedPages][0] : '';
+  el.querySelectorAll('button').forEach(function(b) {
+    b.classList.toggle('qs-on', b.dataset.v === active);
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FILTRI DATI AVANZATI (data + checkbox pagine)
    ═══════════════════════════════════════════════════════════════════════════ */
 function buildFilters() {
-  const f    = document.getElementById('filters');
-  const opts = [['__all__', 'Tutte le pagine'], ...PAGES.map(p => [p, p])];
-  f.innerHTML = opts.map(function([v, l]) {
-    return '<button data-v="' + v + '" aria-pressed="' + (v === pageFilter) + '">' + l + '</button>';
+  const f = document.getElementById('filters');
+
+  const pageChecks = PAGES.map(function(p) {
+    return '<label><input type="checkbox" class="chk-page" value="'
+      + p.replace(/"/g, '&quot;') + '" checked>' + p + '</label>';
   }).join('');
-  f.querySelectorAll('button').forEach(function(b) {
-    b.addEventListener('click', function() {
-      pageFilter = b.dataset.v;
-      f.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x.dataset.v === pageFilter));
+
+  f.innerHTML =
+    '<div class="filter-panel">'
+    + '<div class="filter-group">'
+    +   '<div class="filter-label">Periodo</div>'
+    +   '<div class="filter-dates">'
+    +     '<input type="date" id="f-from" value="' + filterFrom + '">'
+    +     '<span class="sep">—</span>'
+    +     '<input type="date" id="f-to"   value="' + filterTo   + '">'
+    +   '</div>'
+    + '</div>'
+    + '<div class="filter-sep"></div>'
+    + '<div class="filter-group">'
+    +   '<div class="filter-label">Pagine</div>'
+    +   '<div class="filter-pages">'
+    +     '<label class="all-label"><input type="checkbox" id="chk-all" checked>Tutte</label>'
+    +     pageChecks
+    +   '</div>'
+    + '</div>'
+    + '</div>';
+
+  document.getElementById('f-from').addEventListener('change', function() {
+    filterFrom = this.value; render();
+  });
+  document.getElementById('f-to').addEventListener('change', function() {
+    filterTo = this.value; render();
+  });
+
+  const allChk = document.getElementById('chk-all');
+  const pgChks = function() { return f.querySelectorAll('.chk-page'); };
+
+  function syncAllChk() {
+    const boxes   = pgChks();
+    const checked = [...boxes].filter(c => c.checked).length;
+    allChk.indeterminate = checked > 0 && checked < boxes.length;
+    allChk.checked       = checked === boxes.length;
+  }
+
+  allChk.addEventListener('change', function() {
+    pgChks().forEach(function(c) { c.checked = allChk.checked; });
+    selectedPages = allChk.checked ? new Set(PAGES) : new Set();
+    syncQuickSel();
+    render();
+  });
+
+  pgChks().forEach(function(c) {
+    c.addEventListener('change', function() {
+      if (this.checked) selectedPages.add(this.value);
+      else              selectedPages.delete(this.value);
+      syncAllChk();
+      syncQuickSel();
       render();
+    });
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FILTRI VISUALIZZAZIONE (toggle pannelli grafici)
+   ═══════════════════════════════════════════════════════════════════════════ */
+function buildVisFilters() {
+  const el = document.getElementById('vis-bar');
+  if (!el) return;
+  const PANELS = [
+    {id: 'panel-daily',    label: 'Giornaliero'},
+    {id: 'panel-weekly',   label: 'Settimanale'},
+    {id: 'panel-alltime',  label: 'Storico'},
+    {id: 'panel-campaign', label: 'Campagna'},
+    {id: 'panel-page',     label: 'Pagina'},
+    {id: 'panel-locality', label: 'Città'},
+    {id: 'panel-quality',  label: 'Qualità'},
+  ];
+  el.innerHTML = '<span class="vis-lbl">Grafici:</span>'
+    + PANELS.map(function(p) {
+        const on = !document.getElementById(p.id).classList.contains('hidden');
+        return '<button class="vis-btn' + (on ? ' vis-on' : '') + '" data-panel="' + p.id + '">' + p.label + '</button>';
+      }).join('');
+  el.querySelectorAll('.vis-btn').forEach(function(b) {
+    b.addEventListener('click', function() {
+      const panel  = document.getElementById(this.dataset.panel);
+      if (!panel) return;
+      const hiding = !panel.classList.contains('hidden');
+      panel.classList.toggle('hidden', hiding);
+      this.classList.toggle('vis-on', !hiding);
     });
   });
 }
@@ -491,9 +663,9 @@ document.getElementById('updated').innerHTML = IS_DEMO
   : 'Aggiornato il <b>' + ((window.DASHBOARD && window.DASHBOARD.generated_at) || '') + '</b>';
 if (IS_DEMO) document.getElementById('demoBanner').style.display = 'block';
 
-buildLayout();   // 1. inietta il DOM dei pannelli in base a CONFIG
-buildFilters();  // 2. costruisce i bottoni filtro
-render();        // 3. popola tutti i dati
+setupVisibility(); // 1. Configura visibilità e griglie basandosi sul CONFIG senza distruggere i nodi DOM
+buildFilters();    // 2. Inizializza l'interfaccia dei pulsanti filtro
+render();          // 3. Esegue la pipeline di aggregazione ed effettua il rendering visivo dei dati
 </script>
 </body>
 </html>

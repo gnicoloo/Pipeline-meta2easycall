@@ -218,3 +218,14 @@
 [2026-06-29 10:34:17] Nuovi: 0 | Inviati: 0 | Recuperati in history: 0 | Saltati (no contatto): 0 | Errori: 0
 [2026-06-29 10:34:17] === Fine ===
 
+[2026-06-29 11:05:06] === Avvio import Meta -> EasyCall ===
+[2026-06-29 11:05:06] Recupero le pagine accessibili (/me/accounts)...
+[2026-06-29 11:05:08] Pagine accessibili: Arredamento Italia (108078727754043), Mobilmarket (93644523828), Maiora Interiors (1840294139572597)
+[2026-06-29 11:05:09] Pagina 'Mobilmarket': 104 moduli trovati
+[2026-06-29 11:05:42] Pagina 'Arredamento Italia': 8 moduli trovati
+[2026-06-29 11:05:45] Pagina 'Maiora Interiors': 4 moduli trovati
+[2026-06-29 11:05:47] Sync storico: leads_history.csv gia' allineato con meta_leads.csv.
+[2026-06-29 11:05:47] === Riepilogo ===
+[2026-06-29 11:05:47] Nuovi: 0 | Inviati: 0 | Recuperati in history: 0 | Saltati (no contatto): 0 | Errori: 0
+[2026-06-29 11:05:47] === Fine ===
+
