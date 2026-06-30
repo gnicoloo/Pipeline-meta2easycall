@@ -627,7 +627,12 @@ def main():
                     campaign = route_campaign(lead["locality"], routing)
 
                 payload = build_easycall_payload(lead, campaign, ec_cfg.get("channel", "facebook"))
-                ok, info = easycall_send(payload, ec_cfg["url"], ec_cfg["token"])
+                ec_token = ec_cfg.get("campaign_tokens", {}).get(campaign, ec_cfg.get("token", ""))
+                if not ec_token:
+                    log("  ERRORE: nessun token EasyCall configurato per la campagna '{}'".format(campaign))
+                    tot_err += 1
+                    continue
+                ok, info = easycall_send(payload, ec_cfg["url"], ec_token)
                 if ok:
                     tot_sent += 1
                     sent_ids.add(lead_id)
