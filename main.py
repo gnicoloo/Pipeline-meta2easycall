@@ -275,7 +275,16 @@ def normalize_phone(raw):
     if not raw:
         return ""
     # FIX: Cast sicuro a stringa per gestire tipi di dati imprevisti
-    return "".join(ch for ch in str(raw).strip() if ch.isdigit() or ch == "+")
+    digits = "".join(ch for ch in str(raw).strip() if ch.isdigit() or ch == "+")
+    # Rimuove il prefisso internazionale italiano (+39 / 0039 / 39) se presente,
+    # altrimenti gli operatori EasyCall non riescono a chiamare il numero
+    if digits.startswith("+39"):
+        digits = digits[3:]
+    elif digits.startswith("0039"):
+        digits = digits[4:]
+    elif digits.startswith("39") and len(digits) > 10:
+        digits = digits[2:]
+    return digits.lstrip("+")
 
 
 def normalize_lead(lead, locality_field_names):
@@ -358,7 +367,7 @@ def build_easycall_payload(lead, campaign, channel):
     if lead["email"]:
         payload["Email"] = lead["email"]
     if lead["phone"]:
-        payload["Phone"] = lead["phone"]
+        payload["telefono_mobile"] = lead["phone"]
     if lead["locality"]:
         payload["City"] = lead["locality"]
     if campaign:
@@ -581,12 +590,15 @@ def main():
         page_token = pages_meta[pid]["token"]
         mode = page_cfg.get("routing_mode", "locality")
         fixed_campaign = page_cfg.get("fixed_campaign", "")
+        form_overrides = page_cfg.get("form_overrides", {})
 
         forms = meta_get_forms(pid, page_token, api_version)
         log("Pagina '{}': {} moduli trovati".format(pname, len(forms)))
 
         for form in forms:
             form_id = str(form.get("id"))
+            # Modulo con instradamento dedicato (es. campagna promo separata dalla localita')
+            form_fixed_campaign = form_overrides.get(form_id, "")
             # FIX: Iterazione su generatore anziché caricamento massivo in lista
             raw_leads = meta_fetch_leads(form_id, page_token, api_version, lookback_days)
 
@@ -603,7 +615,12 @@ def main():
                 # Recovery: già inviato ma non ancora in meta_leads.csv (es. dopo un merge manuale)
                 if lead_id in sent_ids:
                     if lead_id not in meta_history_ids:
-                        camp_r = fixed_campaign if mode == "fixed" else route_campaign(lead["locality"], routing)
+                        if form_fixed_campaign:
+                            camp_r = form_fixed_campaign
+                        elif mode == "fixed":
+                            camp_r = fixed_campaign
+                        else:
+                            camp_r = route_campaign(lead["locality"], routing)
                         created = (lead.get("created_time") or "")[:10]
                         # FIX: Accumuliamo nello storico del form anziché scrivere su disco immediatamente
                         row = build_history_row(lead, pname, camp_r, import_date=created)
@@ -621,7 +638,9 @@ def main():
                     state_changed = True
                     continue
 
-                if mode == "fixed":
+                if form_fixed_campaign:
+                    campaign = form_fixed_campaign
+                elif mode == "fixed":
                     campaign = fixed_campaign
                 else:
                     campaign = route_campaign(lead["locality"], routing)
